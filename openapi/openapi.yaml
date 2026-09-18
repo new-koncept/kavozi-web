@@ -1,0 +1,408 @@
+openapi: 3.1.0
+info:
+  title: Kavozi Location
+  version: v1
+servers:
+- url: http://localhost:18080
+  description: Generated server url
+paths:
+  /v1/presences/{presenceId}/location:
+    put:
+      tags:
+      - location-controller
+      operationId: updateLocation
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FixRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/FixResponse"
+      security:
+      - presenceToken: []
+  /v1/presences/{presenceId}/discovery-areas:
+    put:
+      tags:
+      - location-controller
+      operationId: replaceDiscoveryAreas
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AreasRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecordedResponse"
+      security:
+      - presenceToken: []
+  /v1/presences:
+    post:
+      tags:
+      - location-controller
+      summary: Create an anonymous presence; raw token returned once
+      operationId: createPresence
+      responses:
+        "201":
+          description: Created
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PresenceResponse"
+  /v1/presences/{presenceId}/offers/{offerHandle}/decline:
+    post:
+      tags:
+      - location-controller
+      operationId: declineLocationOffer
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: offerHandle
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecordedResponse"
+      security:
+      - presenceToken: []
+  /v1/presences/{presenceId}/offers/{offerHandle}/accept:
+    post:
+      tags:
+      - location-controller
+      operationId: acceptLocationOffer
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: offerHandle
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RecordedResponse"
+      security:
+      - presenceToken: []
+  /v1/presences/{presenceId}/inbox:
+    get:
+      tags:
+      - location-controller
+      operationId: getPresenceInbox
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/InboxResponse"
+      security:
+      - presenceToken: []
+  /v1/location/administrative-areas:
+    get:
+      tags:
+      - location-controller
+      operationId: searchAdministrativeAreas
+      parameters:
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ""
+      - name: type
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CITY
+          - DISTRICT
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdministrativeAreaResponse"
+  /.well-known/kavozi-location:
+    get:
+      tags:
+      - location-controller
+      operationId: getLocationMetadata
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/MetadataResponse"
+  /v1/presences/{presenceId}:
+    delete:
+      tags:
+      - location-controller
+      operationId: deletePresence
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+      security:
+      - presenceToken: []
+components:
+  schemas:
+    FixRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        longitude:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+        accuracyMeters:
+          type: number
+          format: double
+          minimum: 0
+        observedAt:
+          type: string
+          format: date-time
+        sequence:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - accuracyMeters
+      - latitude
+      - longitude
+      - observedAt
+      - sequence
+    FixResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - ACCEPTED
+        sequence:
+          type: integer
+          format: int64
+        expiresAt:
+          type: string
+          format: date-time
+    AreaRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - RADIUS
+          - ADMINISTRATIVE_AREA
+        radiusMeters:
+          type: number
+          format: double
+        administrativeAreaId:
+          type: string
+          format: uuid
+      required:
+      - id
+      - type
+    AreasRequest:
+      type: object
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        areas:
+          type: array
+          items:
+            $ref: "#/components/schemas/AreaRequest"
+      required:
+      - areas
+      - revision
+    RecordedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - RECORDED
+    PresenceResponse:
+      type: object
+      properties:
+        presenceId:
+          type: string
+          format: uuid
+        presenceToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        locationUpdateAfterSeconds:
+          type: integer
+          format: int32
+        inboxPollAfterSeconds:
+          type: integer
+          format: int32
+    InboxResponse:
+      type: object
+      properties:
+        pollAfterSeconds:
+          type: integer
+          format: int32
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfferResponse"
+    OfferResponse:
+      type: object
+      properties:
+        offerHandle:
+          type: string
+          format: uuid
+        localDiscoveryAreaIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+        status:
+          type: string
+          enum:
+          - PENDING
+          - ACCEPTED
+        expiresAt:
+          type: string
+          format: date-time
+    AdministrativeAreaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - CITY
+          - DISTRICT
+    MetadataResponse:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        presenceTtlSeconds:
+          type: integer
+          format: int64
+        locationFreshnessSeconds:
+          type: integer
+          format: int64
+        locationUpdateAfterSeconds:
+          type: integer
+          format: int32
+        inboxPollAfterSeconds:
+          type: integer
+          format: int32
+        discoveryIntervalMilliseconds:
+          type: integer
+          format: int64
+        offerTtlSeconds:
+          type: integer
+          format: int64
+        maxDiscoveryAreas:
+          type: integer
+          format: int32
+        supportedAreaTypes:
+          type: array
+          items:
+            type: string
+            enum:
+            - RADIUS
+            - ADMINISTRATIVE_AREA
+          uniqueItems: true
+        minRadiusMeters:
+          type: number
+          format: double
+        maxRadiusMeters:
+          type: number
+          format: double
+        maxAccuracyMeters:
+          type: number
+          format: double
+        futureToleranceSeconds:
+          type: integer
+          format: int64
+  securitySchemes:
+    presenceToken:
+      type: apiKey
+      description: KavoziPresence <token>; token returned once on presence creation
+      name: Authorization
+      in: header

@@ -1,0 +1,4 @@
+:root { font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+body { margin: 0; min-width: 320px; }
+.quiet-orbit { width: 64px; height: 64px; margin: auto; border-radius: 50%; background: radial-gradient(circle, #89a492 0, #d4dfd1 42%, #eef0e6 70%); box-shadow: 0 0 0 12px #e8ece180, 0 0 0 25px #eceee650; }
+summary { cursor: pointer; }
