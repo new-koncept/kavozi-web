@@ -1,12 +1,14 @@
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
+import { diveTemplate, coffeeTemplate } from './intentFixtures'
+import type { Template } from '../intent/api/intentTemplateClient'
 import type { Schema } from '../api/locationClient'
 
 export const base = 'http://localhost:8080'
 import { metadata, fixturePresence } from './fixtures'
 export { metadata, fixturePresence } from './fixtures'
 function initialState() {
-  return { creates: 0, createAuth: [] as (string | null)[], auth: [] as string[],
+  return { templates: structuredClone([diveTemplate, coffeeTemplate]) as Template[], templateRequests: [] as string[], creates: 0, createAuth: [] as (string | null)[], auth: [] as string[],
     fixes: [] as Schema['FixRequest'][], configurations: [] as Schema['AreasRequest'][],
     inboxCalls: 0, offer: false, accepted: [] as string[], declined: [] as string[], deletes: 0, searches: [] as string[] }
 }
@@ -15,9 +17,20 @@ export function resetApiState() { apiState = initialState() }
 function authorized(request: Request) {
   const auth = request.headers.get('Authorization') ?? ''
   apiState.auth.push(auth)
-  return /^KavoziPresence test-secret-\d+$/.test(auth)
+  return /^KavozilPresence test-secret-\d+$/.test(auth)
 }
 export const handlers = [
+  http.get(`${base}/v1/intent-templates`, ({ request }) => {
+    if (request.headers.has('Authorization')) return new HttpResponse(null, { status: 400 })
+    apiState.templateRequests.push('catalogue')
+    return HttpResponse.json(apiState.templates.map(({ key, name, description }) => ({ key, name, description })))
+  }),
+  http.get(`${base}/v1/intent-templates/:key`, ({ params, request }) => {
+    if (request.headers.has('Authorization')) return new HttpResponse(null, { status: 400 })
+    apiState.templateRequests.push(String(params.key))
+    const template = apiState.templates.find((t) => t.key === params.key)
+    return template ? HttpResponse.json(template) : new HttpResponse(null, { status: 404 })
+  }),
   http.get(`${base}/.well-known/kavozi-location`, () => HttpResponse.json(metadata)),
   http.post(`${base}/v1/presences`, ({ request }) => {
     apiState.createAuth.push(request.headers.get('Authorization'))

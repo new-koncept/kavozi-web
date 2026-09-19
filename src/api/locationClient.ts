@@ -2,6 +2,7 @@ import createClient from 'openapi-fetch'
 import type { components, paths } from './generated/schema'
 import type { LocalPresence } from '../location/model/local'
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 export type Schema = components['schemas']
 type Credentials = Pick<LocalPresence, 'id' | 'token'>
 
@@ -27,7 +28,7 @@ export function errorMessage(error: unknown) {
   return error instanceof ApiError ? error.message : 'Could not complete this action. Please try again.'
 }
 
-export function createLocationClient(baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080') {
+export function createLocationClient(baseUrl = API_BASE_URL) {
   const client = createClient<paths>({ baseUrl, fetch: (request) => globalThis.fetch(request) })
   async function result<T>(request: Promise<{ data?: T; response: Response }>): Promise<T> {
     let response: { data?: T; response: Response }
@@ -37,7 +38,7 @@ export function createLocationClient(baseUrl = import.meta.env.VITE_API_BASE_URL
     return response.data
   }
   // The prefix comes from the supplied security scheme, not the product name.
-  const auth = (presence: Credentials) => ({ Authorization: `KavoziPresence ${presence.token}` })
+  const auth = (presence: Credentials) => ({ Authorization: `KavozilPresence ${presence.token}` })
   async function protectedRequest<T>(presence: Credentials, request: () => Promise<T>) {
     try { return await request() } catch (error) {
       if (error instanceof ApiError && error.invalidPresence) {

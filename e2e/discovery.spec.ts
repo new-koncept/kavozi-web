@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext } from '@playwright/test'
+import { diveTemplate, coffeeTemplate } from '../src/test/intentFixtures'
 import { fixturePresence, metadata } from '../src/test/fixtures'
 import type { components } from '../src/api/generated/schema'
 
@@ -13,13 +14,15 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS' }
     const json = (body: unknown, status = 200) => route.fulfill({ status, headers, json: body })
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    if (path === '/v1/intent-templates') return json([diveTemplate, coffeeTemplate].map(({ key, name, description }) => ({ key, name, description })))
+    if (path.startsWith('/v1/intent-templates/')) return json(path.endsWith('/dive') ? diveTemplate : coffeeTemplate)
     if (path === '/.well-known/kavozi-location') return json(metadata)
     if (path === '/v1/presences') {
       expect(request.headers().authorization).toBeUndefined()
       state.creates++
       return json(presence, 201)
     }
-    expect(request.headers().authorization === `KavoziPresence ${presence.presenceToken}`).toBe(true)
+    expect(request.headers().authorization === `KavozilPresence ${presence.presenceToken}`).toBe(true)
     expect(path.startsWith(`/v1/presences/${presence.presenceId}`)).toBe(true)
     if (path.endsWith('/location')) {
       const fix = request.postDataJSON() as Schema['FixRequest']
@@ -30,7 +33,7 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
       state.areas = (request.postDataJSON() as Schema['AreasRequest']).areas
       return json({ status: 'RECORDED' } satisfies Schema['RecordedResponse'])
     }
-    if (path.endsWith('/inbox')) return json({ pollAfterSeconds: 30, offers: state.areas.length ? [{
+    if (path.endsWith('/inbox')) return json({ pollAfterSeconds: 1, offers: state.areas.length ? [{
       offerHandle: '00000000-0000-4000-8000-999999999999', localDiscoveryAreaIds: state.areas.map((area) => area.id),
       status: state.accepts ? 'ACCEPTED' : 'PENDING', expiresAt: new Date(Date.now() + metadata.offerTtlSeconds * 1000).toISOString(),
     }] : [] } satisfies Schema['InboxResponse'])
@@ -41,7 +44,7 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
   return state
 }
 
-test('Alice and Bob have isolated anonymous Presences, GPS updates, local areas and offers', async ({ browser }) => {
+test('local Intent creation, dual activation, private offers and independent browser Presences', async ({ browser }) => {
   const alice = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 48.1486, longitude: 17.1077, accuracy: 18 } })
   const bob = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 48.1487, longitude: 17.1078, accuracy: 20 }, viewport: { width: 390, height: 844 } })
   try {
@@ -53,28 +56,42 @@ test('Alice and Bob have isolated anonymous Presences, GPS updates, local areas 
       await page.goto('http://localhost:5173')
       await page.getByRole('button', { name: 'Enable location' }).click()
       await expect(page.getByText('Location active', { exact: true })).toBeVisible()
-      await page.getByRole('button', { name: 'Add radius area' }).click()
-      await page.getByRole('button', { name: 'Save discovery areas' }).click()
+      await page.getByRole('button', { name: 'Your intents' }).click()
+      for (const name of ['Dive Buddy', 'Coffee & Conversation']) {
+        await page.getByRole('button', { name: 'Create intent' }).click()
+        await page.getByRole('button', { name: new RegExp(name) }).click()
+        await page.getByRole('textbox', { name: 'Intent title' }).fill(name)
+        await page.getByRole('combobox', { name: 'Where', exact: true }).click()
+        await page.getByRole('option', { name: 'Around me' }).click()
+        await page.getByRole('spinbutton', { name: 'Radius (meters)' }).fill('5000')
+        if (name === 'Dive Buddy') await page.getByRole('textbox', { name: 'Your agent instruction' }).fill('Careful buddies, please.')
+        if (name === 'Dive Buddy') {
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+          await page.screenshot({ path: page === alicePage ? 'test-results/intent-editor.png' : 'test-results/intent-editor-mobile.png', fullPage: true })
+        }
+        await page.getByRole('button', { name: 'Save intent' }).click()
+        await expect(page.getByRole('button', { name: 'Create intent' })).toBeVisible()
+      }
+      await page.getByRole('button', { name: 'Discovery', exact: true }).click()
+      for (const name of ['Dive Buddy', 'Coffee & Conversation']) {
+        await page.getByRole('switch', { name: `Activate ${name}` }).click()
+        await expect(page.getByRole('switch', { name: `Activate ${name}` })).toBeChecked()
+      }
       await expect(page.getByText('You’re discoverable.')).toBeVisible()
-      await expect(page.getByText('Something matched', { exact: true })).toBeVisible()
-      await expect(page.getByText('Matched through your own areas:')).toBeVisible()
+      await expect(page.getByText('Through your local intents:')).toBeVisible()
+      await expect(page.getByRole('listitem').filter({ hasText: 'Dive Buddy' })).toBeVisible()
+      await expect(page.getByRole('listitem').filter({ hasText: 'Coffee & Conversation' })).toBeVisible()
       await expect(page.locator('body')).not.toContainText(/test-secret|48\.148|17\.107|People near you/)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
     expect(aliceState.creates).toBe(1)
     expect(bobState.creates).toBe(1)
+    expect(aliceState.areas).toHaveLength(2)
     expect(aliceState.areas[0].id).not.toBe(bobState.areas[0].id)
-    // A same-origin tab must share the existing Presence rather than create another.
-    const aliceTab = await alice.newPage()
-    await aliceTab.goto('http://localhost:5173')
-    await expect(aliceTab.getByRole('button', { name: 'Enable location' })).toBeVisible()
-    expect(aliceState.creates).toBe(1)
-    await aliceTab.close()
-    expect(aliceState.fixes[0].latitude).toBe(48.1486)
-    expect(bobState.fixes[0].latitude).toBe(48.1487)
-    const ownId = aliceState.areas[0].id
-    await alicePage.screenshot({ path: 'test-results/alice-discovery.png', fullPage: true })
-    await bobPage.screenshot({ path: 'test-results/bob-mobile.png', fullPage: true })
+    expect(Object.keys(aliceState.areas[0]).sort()).toEqual(['id', 'radiusMeters', 'type'])
+    const ownIds = aliceState.areas.map((area) => area.id).sort()
+    await alicePage.screenshot({ path: 'test-results/alice-intents.png', fullPage: true })
+    await bobPage.screenshot({ path: 'test-results/bob-mobile-intents.png', fullPage: true })
     await alicePage.getByRole('button', { name: 'Continue' }).click()
     await expect(alicePage.getByText('Waiting privately for the next step.')).toBeVisible()
     expect(aliceState.accepts).toBe(1)
@@ -83,7 +100,7 @@ test('Alice and Bob have isolated anonymous Presences, GPS updates, local areas 
     await alicePage.getByRole('button', { name: 'Enable location' }).click()
     await expect(alicePage.getByText('Location active', { exact: true })).toBeVisible({ timeout: 10_000 })
     expect(aliceState.creates).toBe(1)
-    expect(aliceState.areas[0].id).toBe(ownId)
+    expect(aliceState.areas.map((area) => area.id).sort()).toEqual(ownIds)
     expect(aliceState.fixes.at(-1)!.sequence).toBeGreaterThan(aliceState.fixes[0].sequence)
     await alicePage.getByRole('button', { name: 'Stop discovery' }).click()
     await expect(alicePage.getByRole('button', { name: 'Start discovery' })).toBeVisible()

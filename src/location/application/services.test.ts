@@ -70,7 +70,7 @@ describe('contract and application services', () => {
     expect(await discoveryAreaRepository.get()).toEqual(areas)
     expect(await presenceRepository.get()).toMatchObject({ revision: 1, syncedRevision: 0 })
     await replaceDiscoveryAreas(presence.id, areas, metadata)
-    expect(apiState.configurations[0]).toEqual({ revision: 2, areas: toTransportAreas(areas) })
+    expect(apiState.configurations[0]).toEqual({ areas: toTransportAreas(areas) })
   })
   it('validates accuracy, freshness, future tolerance and radius using metadata', async () => {
     expect(fixProblem(position({ accuracy: metadata.maxAccuracyMeters + 1 }), metadata)).toBe('poor')

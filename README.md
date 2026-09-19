@@ -1,10 +1,10 @@
 # Kavozi web POC
 
-An anonymous geographic eligibility client for one Kavozi Location backend. Configure your own discovery areas and receive opaque opportunities. There are no accounts, maps, peer coordinates, distances, counts, peer decisions, or Encounter progression.
+An anonymous geographic discovery client with browser-owned Intents. The backend supplies the Location API and read-only Intent template vocabulary. Concrete Intents remain in IndexedDB. No accounts, AI execution, hard-filter backend matching, Encounter, messaging, maps, or peer-location information are implemented.
 
-## Run locally
+## Local development
 
-Use Node.js 22.12+ (validated with Node 22) and npm.
+Use Node.js 22.12+ and npm.
 
 ```sh
 npm install
@@ -12,45 +12,41 @@ npm run generate:api
 npm run dev
 ```
 
-The API defaults to `http://localhost:18080`, matching the supplied OpenAPI server. To change it, create `.env.local` using `.env.example`:
+The current OpenAPI server is `http://localhost:8080`. Override it in `.env.local` using `.env.example`:
 
 ```dotenv
-VITE_API_BASE_URL=http://localhost:18080
+VITE_API_BASE_URL=http://localhost:8080
 ```
 
-Restart Vite after changing environment variables. The backend must serve the supplied routes and allow CORS from the frontend origins, including `Authorization`, JSON requests, and GET/POST/PUT/DELETE. Use localhost or HTTPS for browser geolocation and Web Locks. Browser settings must allow IndexedDB.
+Restart Vite after changing environment variables. The backend must allow CORS from the frontend origin, including Authorization and JSON GET/POST/PUT/DELETE requests. Use localhost or HTTPS for geolocation and Web Locks. Normal development uses the real backend; MSW and Playwright interception are test-only. There is no service worker.
 
-The app talks directly to the real API during normal development. MSW runs only in tests; there is no service worker or fake production API.
-
-## Alice / Bob manual testing
-
-Run these commands in separate terminals:
+Two independent clients, in separate terminals:
 
 ```sh
-# Alice: http://localhost:5173
+# Alice — http://localhost:5173
 npm run dev -- --port 5173 --strictPort
 ```
 
 ```sh
-# Bob: http://localhost:5174
+# Bob — http://localhost:5174
 npm run dev -- --port 5174 --strictPort
 ```
 
-Ports create different origins, so the two clients have independent IndexedDB stores even in the same browser. Two tabs at the same origin share a Presence; use the two ports or separate browser profiles for independent clients.
+Different ports have separate IndexedDB storage. Same-origin tabs share a Presence. Separate browser profiles also provide isolation.
 
-1. Open each URL. Each client creates its own anonymous Presence once.
-2. Click **Enable location** and grant permission. For deterministic manual GPS, use browser developer tools → Sensors, setting Alice to `48.1486, 17.1077` and Bob to `48.1487, 17.1078`, with acceptable accuracy.
-3. Add a radius area (for example, 5 km) and **Save discovery areas** in each client. Alternatively search for a city/district returned by the backend. Empty results stay empty.
-4. Wait for backend discovery and the advertised inbox polling interval. Browser test coordinates are inputs, never peer information displayed by the UI.
-5. If the backend returns an offer, its labels refer only to this browser's saved areas. **Continue** displays “Interest recorded. Waiting privately for the next step.” **Pass** hides the offer after the server records it.
-6. Reload: the Presence, counters, and stable area IDs survive. Enable location again; saved areas are resynchronized as a complete set.
-7. **Stop discovery** deletes the Presence and clears its token/counters. Reload stays stopped. **Start discovery** creates a new Presence and reuses your saved area preferences.
+1. Open each client and grant location permission using **Enable location**. Browser Sensors can simulate Alice at `48.1486, 17.1077` and Bob at `48.1487, 17.1078`, with acceptable accuracy.
+2. Open **Your intents**, then **Create intent**. The catalogue comes from the backend; there is no production fallback catalogue.
+3. Choose a template, enter a title and geography, then configure the available About me, Must match, Nice to have, encounter-option and agent sections. Save locally.
+4. Return to **Discovery** and activate desired Intents. Each activation checks the current definition. Location receives the complete geographic projection of all active Intents.
+5. Anonymous offers may name your own matching Intent titles. This confirms geographic eligibility only, not shared templates, satisfied requirements, or peer decisions.
+6. **Continue** records local interest; **Pass** hides an offer after recording. No further progression is fabricated.
+7. Reload preserves Intents, stable area IDs, Presence credentials, and location sequence. Enable location again. **Stop discovery** deletes Presence credentials while keeping Intents. Starting again revalidates saved active choices.
 
-Closing a tab does not explicitly delete a Presence; backend expiry applies. This is a foreground browser POC: background tabs and suspended devices can delay GPS and polling. The UI marks an accepted location stale when the backend freshness window passes.
+Closing a tab does not delete a Presence; server expiry applies. Background-tab throttling can delay GPS/polling. The UI marks old location fixes stale.
 
-## Transport contract
+## Source of truth and generation
 
-The authoritative file is **`openapi/openapi.yaml`**. It is not edited by the frontend. Generate transport types with:
+The supplied **`openapi/openapi.yaml`** remains unchanged. Generate transport declarations using:
 
 ```sh
 npm run generate:api
@@ -58,83 +54,123 @@ npm run generate:api
 npx openapi-typescript openapi/openapi.yaml -o src/api/generated/schema.d.ts
 ```
 
-`openapi-fetch` uses generated `paths` and `components` types. Application state has its own small local models; transport DTOs are not manually duplicated.
+Both clients use generated `paths`/`components` types with `openapi-fetch`; there are no hand-written template DTO copies.
 
-The supplied specification differs from the initial task examples:
+Current changes in the supplied contract:
 
-| Item | Supplied contract used by this app |
-| --- | --- |
-| Metadata | `GET /.well-known/kavozi-location` |
-| Authorization | `Authorization: KavoziPresence <presenceToken>` |
-| Administrative result identifier | `id`, mapped to request `administrativeAreaId` |
-| Backend URL | `http://localhost:18080` |
+- `GET /v1/intent-templates` / `listIntentTemplates` returns `IntentTemplateSummary[]`.
+- `GET /v1/intent-templates/{key}` / `getIntentTemplate` returns `TemplateResponse`.
+- Template types include `TemplateField`, discriminated `FieldConstraints`, the six constraint variants, `FieldOption`, and `AgentConfiguration`.
+- `AreasRequest` now contains **only `areas`**. No revision is sent to Location.
+- Metadata remains `GET /.well-known/kavozi-location`.
+- The default server is now port **8080**.
+- The security scheme description literally specifies **`KavozilPresence <token>`**, including the extra `l`. The centralized header follows that supplied spelling; it was not silently corrected to the previous `KavoziPresence`.
+- Template endpoints document `ErrorResponse` on 404. UI errors remain safe, status-based messages, without displaying raw server exceptions.
 
-All response properties are optional in the specification. The application validates essential Presence and metadata fields, requires recording/acceptance statuses for mutations, and ignores incomplete offers. It does not fabricate protocol limits. Presence/inbox response intervals override metadata timing; returned expiry timestamps determine Presence and offer expiry. Discovery cadence is owned by the backend, not a frontend discovery endpoint.
+**Live verification:** on 2026-09-18 nothing was listening at `localhost:8080`, including when checked outside the sandbox. Tests pass against contract-shaped mocks. Real backend compatibility, particularly the auth-prefix spelling, is not yet verified. No backend or OpenAPI changes were made.
 
-The specification defines no error schemas or error-status semantics. Errors therefore use HTTP status only, never server exception text: network/5xx unavailable, 400/422 rejected input, 409 stale sequence/revision, 401/403 unusable credentials, and 404/410 unavailable resources. Only 401/403 trigger automatic credential replacement; an unavailable offer is not evidence of an invalid Presence. No counter-recovery endpoint, idempotency key for creation, pause endpoint, or Encounter API exists.
-
-**Live verification limitation:** during implementation on 2026-09-17, the service listening on `localhost:18080` returned HTTP 404 for `GET /.well-known/kavozi-location`. Real-backend discovery could not be verified against that running instance. The frontend follows the supplied file; backend routes, configuration, and OpenAPI were not changed. Automated tests below use that contract with mocked responses.
-
-## Source structure
+## Structure
 
 ```text
-openapi/openapi.yaml              supplied source of truth
 src/
   api/
-    generated/schema.d.ts        generated transport types
-    locationClient.ts            typed client, auth, safe HTTP errors
+    generated/schema.d.ts
+    locationClient.ts                    shared base URL, Location auth/errors
   app/
-    App.tsx                      startup and page composition
-    queryClient.ts               conservative Query defaults
-    theme.ts                     MUI theme
+    App.tsx                              Discovery / Your intents navigation
+    queryClient.ts
+    theme.ts
+  intent/
+    api/
+      intentTemplateClient.ts            public, read-only typed requests
+      templateDefinition.ts              runtime template-definition checks
+    model/Intent.ts                      local tagged values, predicates, geography
+    persistence/intentRepository.ts      local reads; service owns mutations
+    application/
+      fieldSemantics.ts                  central operator labels / operand shapes
+      intentValidator.ts                 value, geography, compatibility checks
+      intentService.ts                   save / activate / deactivate / safe delete
+      intentDiscoveryProjection.ts       sole Intent -> Location transport boundary
+    hooks/useIntents.ts                   live IndexedDB state and Query templates
+    components/
+      IntentEditor.tsx                   one schema-driven editor for all templates
+      TemplateFieldEditor.tsx             six generic field types
+      PredicateEditor.tsx                requirements and preferences
+      GeographyEditor.tsx                shared Location geography controls
+      IntentCard.tsx                     state, review, activation, deletion dialog
+    pages/IntentsPage.tsx                 catalogue, create/edit/list
   location/
-    application/                 Presence lifecycle, locks, metadata,
-                                 GPS validation/submission, full area replacement
-    model/local.ts               local state, radius labels, own-area mapping
-    persistence/db.ts            Dexie schema and repositories
-    hooks/                       Presence, geolocation, inbox polling
-    components/                  permission, area editor, autocomplete, offers
-  test/                          MSW server, typed fixtures, test setup
-  main.tsx                       React / Query / MUI providers
-  index.css                      minimal global styles
-  **/*.test.ts(x)                unit and integration coverage
-e2e/discovery.spec.ts             two isolated browser contexts
-playwright.config.ts
+    application/                         existing Presence and GPS services
+    persistence/db.ts                    extended Dexie database
+    hooks/                               Presence, GPS, inbox
+    components/                          discovery, offers, shared geography inputs
+    model/
+  test/                                  MSW fixtures and setup
+  **/*.test.ts(x)                         unit and integration tests
+e2e/discovery.spec.ts                     desktop/mobile, two isolated contexts
 ```
 
-## IndexedDB and lifecycle
+Navigation uses two views in the existing single-page app, without adding a router. The discovery session remains mounted while managing Intents so navigation does not interrupt an enabled GPS watch.
 
-Database: `kavozi-location`, version **1**. Each table uses `key` as its primary key.
+## Local model and IndexedDB
 
-| Table / record | Stored data |
-| --- | --- |
-| `presences` / `current` | Presence ID, opaque token, expiry, location/inbox intervals, reserved and accepted location sequences, reserved and synchronized area revisions, latest submission time, latest accepted observation time |
-| `configurations` / `areas` | Complete desired local area list; stable UUID per area; radius meters or administrative ID plus display name/type |
-| `preferences` / `discovery` | Explicit stopped state, also set before a potentially ambiguous creation request |
+An Intent stores UUID `id`, `templateKey`, title, geography, claims, requirements, preferences, encounter options, optional agent instruction, active state, stable UUID `discoveryAreaId`, and creation/update timestamps. `pendingDeletion` records a failed active-deletion synchronization for safe retry. There are **no Intent version, revision or templateVersion fields**.
 
-Credentials are stored only in IndexedDB and transient memory. They are never written to localStorage, sessionStorage, URLs, logs, analytics, or rendered diagnostics. All protected requests use the same header factory; creation, metadata, and administrative search are public.
+Values are tagged local structures rather than transport DTOs:
 
-Startup reuses an unexpired Presence. Mutations and lifecycle changes are serialized using Web Locks across same-origin tabs, with a same-page promise queue as fallback where Web Locks are unavailable. Atomic IndexedDB transactions reserve counters before sending, so rejected or ambiguous requests cannot cause reuse of a number. A reload retains the throttling timestamp too.
+- BOOLEAN / NUMBER / CODE / TEXT: `{ type, value }`.
+- SET: `{ type: 'SET', elementType, values }`.
+- RANGE: `{ type: 'RANGE', lower, upper }`.
+- Requirements/preferences: local UUID, field key, supplied operator, tagged operand.
 
-A clear expiry replaces credentials. Invalid authentication permits one automatic replacement per mounted application, then stops until explicit retry. Automatic retries are disabled for creation. If creation fails ambiguously, reload remains stopped instead of issuing another silent POST; the public API cannot recover a token from a response that was lost. Successful deletion clears credentials and counter state but keeps area preferences. Failed deletion retains credentials so it can be retried.
+Tags detect type changes (including CODE -> TEXT and SET element-type changes) without reinterpreting saved data. In-progress editor geography/operands can be absent; required values are checked before save/activation.
 
-## Geolocation and discovery
+Database **`kavozi-location`**, schema **2**, adds `intents` with indexes `id, templateKey, updatedAt`. `active` is stored but deliberately not indexed: IndexedDB does not support boolean keys. Existing v1 Presence, configuration and preference stores survive the upgrade. Legacy raw-area preferences are retained locally but are no longer the primary UI or projected into discovery. No template or Intent is invented to migrate them; create Intents explicitly. The first new synchronization replaces legacy remote geography with active Intent geography (or an empty list).
 
-Location is requested only after an explicit click. `watchPosition` collects fixes; periodic `getCurrentPosition` requests refresh a stationary device at the Presence interval. The newest useful fix is coalesced, throttled, validated against metadata accuracy/freshness/future tolerance, and mapped to the exact generated request. Permission denial stops periodic permission attempts. Watchers and timers are cleaned up when stopping/unmounting.
+Templates are not persisted as authority. TanStack Query uses `['intentTemplates']` and `['intentTemplate', key]`, with two-minute freshness. Current definitions are fetched again for saving/activation/synchronization. Local Intent cards remain visible when the backend is unavailable; editing/activation do not guess a schema.
 
-Each commit sends the **complete** desired area set with a newly reserved revision, including an empty set when clearing discovery. IDs stay stable while editing, retrying, and reloading. A failed synchronization retains the desired configuration and shows a retry action. Backend metadata controls radius bounds, supported types, and maximum area count. Administrative search is debounced by 300 ms and supports the optional CITY/DISTRICT filter; no polygons or fabricated options are used.
+## Generic editing and validation
 
-Inbox polling starts when location is accepted/fresh and at least one area is synchronized. It honors the inbox response's `pollAfterSeconds`, otherwise the Presence's `inboxPollAfterSeconds`, and avoids immediate repeated fetching on re-enable. Offers map `localDiscoveryAreaIds` only to this browser's areas. Unknown IDs reveal nothing. Expired offers disappear, and accepting exposes only local recording status.
+One renderer interprets field type, discriminated constraints, roles and permitted operators. Missing optional claims stay absent. CODE values store stable option values; SET supports code selections, boolean selections, numeric/text tags and ISO instants. RANGE uses numeric lower/upper values and unit labels. Agent sections use backend labels, prompt, required flag and maximum length. CUSTOM uses the same rendering path as every other template.
 
-Development-only diagnostics show shortened own Presence/offer IDs, expiry, counters, own accuracy, local area IDs, timing configuration, and polling state. The diagnostics branch is removed from production builds.
+Validation checks template structure at runtime; local values, required roles, numeric bounds/steps, text length, options, set cardinality/type/uniqueness, range ordering, geography, allowed operators and agent constraints are checked before save and activation. Invalid preferences generate warnings, never activation blockers.
 
-## Dependencies
+An incompatible current definition produces **Needs review**. Saved values remain intact and the editor provides explicit removal/clear actions for obsolete values. Invalid active Intents are deactivated and their geography withdrawn. Template fetch failure suspends remote geography where the backend remains reachable, while preserving local active choices for retry. If Location itself is unavailable, the UI reports synchronization failure rather than claiming that remote geography was cleared.
 
-Runtime additions: MUI (`@mui/material`, Emotion), TanStack Query, `openapi-fetch`, and Dexie. Existing React and Vite are retained. TypeScript is pinned to the requested 5.x series (`~5.9.3`). No router is needed for this single-screen flow.
+## Intent -> Location boundary
 
-Development additions: `openapi-typescript`, Vitest, React Testing Library, user-event, jest-dom, MSW, jsdom, fake-indexeddb, and Playwright. No authentication, cryptographic, state-machine, or service-worker libraries are used.
+`buildLocationDiscoveryAreas(activeIntents)` is the only conversion from Intent geography to generated `AreaRequest[]`:
+
+```text
+Intent.discoveryAreaId -> AreaRequest.id
+RADIUS -> radiusMeters
+ADMINISTRATIVE_AREA -> administrativeAreaId
+```
+
+Every update replaces the complete set, including `areas: []` for zero active Intents. The current metadata maximum is enforced. Template key, title, claims, predicates, encounter options and agent instruction never enter a Location request. Inbox `localDiscoveryAreaIds` map only to saved Intents' `discoveryAreaId`; unknown IDs reveal nothing.
+
+Lifecycle and projection mutations use the existing same-origin Web Lock / same-page promise queue. Failed activation/deactivation synchronization preserves the desired local state and provides retry. Deleting an active Intent requires confirmation, persists it inactive with a pending-deletion marker, synchronizes remaining geography, then removes the record. If synchronization fails, the record remains and **Retry delete** repeats synchronization before deletion. Inactive Intents without pending deletion can be removed locally.
+
+## Explicit schema ambiguities and limits
+
+- **Operator operand schemas are absent.** The local interpretation uses sets for scalar IN/NOT_IN, sets for INTERSECTS/CONTAINS_ALL, numeric ranges for RANGE_INTERSECTS, and field-shaped values for equality/comparison. Scalar members of IN retain original field bounds. Ambiguous combinations such as IN on a SET/RANGE or ordering a non-ordered code are visibly unsupported; they cannot become valid hard requirements. No matching is executed.
+- **`required` is field-wide, not role-specific.** It applies to supported About me / encounter-option values; requirement-only fields require a predicate. A field shared with CLAIM does not force an additional requirement. Preference-only missing/invalid data is non-blocking.
+- **RANGE has no elementType.** Its numeric min/max/step imply the supported numeric range editor. Non-numeric ranges cannot be described by this contract.
+- **SET INSTANT has no declared wire format.** Local values use ISO-8601 instants; the editor accepts device-local date/time and normalizes to an ISO timestamp. Nothing is transmitted to Location.
+- **SET REFERENCE has no reference target or lookup endpoint.** It is editable only when explicit options supply stable values. A free-form or entity-search reference is not invented; configured/required unsupported values need review.
+- **Administrative areas have no lookup-by-ID endpoint.** IDs originate from the shared backend search and are validated structurally as UUIDs. Continued existence is ultimately checked by Location when the projected area is submitted.
+- Most response properties are optional in OpenAPI. Essential keys, field definitions and metadata are runtime-checked before use. Agent sections are enabled when `AgentConfiguration.enabled` is true.
+- No Intent persistence, deterministic-matching projection, AI execution, Encounter, or messaging API exists here. Those capabilities are not simulated.
+
+## Existing Location behavior
+
+Presence creation remains anonymous/public. Credentials are stored only in IndexedDB and transient memory; one auth factory handles protected calls. They never appear in local/session storage, URLs, logs or diagnostics. Expired credentials are renewed; invalid auth has one automatic replacement before explicit retry. Ambiguous creation failure does not silently issue more POSTs after reload.
+
+GPS requires an explicit action, validates metadata accuracy/freshness/future tolerance, coalesces updates at the Presence interval and persists the monotonic sequence. Successful fixes renew expiry when supplied. Inbox polling honors response/Presence intervals. Stop deletes the Presence, clears its credentials and stops GPS/polling. Development diagnostics expose only shortened own IDs, counters, accuracy, polling state and the local-only structured matching limitation.
 
 ## Verification
+
+No new dependencies were required for Intent management. The existing React, TypeScript 5.x, Vite, MUI, TanStack Query, openapi-typescript/openapi-fetch, Dexie and test stack are reused.
 
 ```sh
 npm run generate:api
@@ -143,11 +179,11 @@ npm test
 npm run lint
 npm run build
 
-# Install Chromium once if it is not already available:
+# Install Chromium once if necessary:
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Unit/MSW integration tests cover persistence, concurrent startup, expiry and invalid credentials, ambiguous creation failure, monotonic sequence/revision and retry behavior, metadata limits, complete area replacement, own-ID mapping, public/protected authentication, geolocation submission/coalescing, empty/anonymous inboxes, polling cadence, accept/decline, administrative search, reload, and deletion failures.
+The unit/MSW suite covers Location regressions, template vocabulary/runtime checks, all six generic field types, constraints, operator operands, preference behavior, template changes, IndexedDB persistence and migration, full geography projection, activation/deactivation, safe deletion retries, administrative search and local offer mapping.
 
-The Playwright smoke test uses two isolated browser contexts with close mocked GPS positions and contract-shaped HTTP responses. It verifies independent credentials/area IDs, desktop/mobile layout, privacy-safe offers, local acceptance, reload sequencing, and deletion isolation. It does **not** simulate backend geographic matching or claim that Alice and Bob actually matched. Screenshots are written to the ignored `test-results/` directory. Tests never start a service worker.
+Playwright creates Dive Buddy and Coffee & Conversation Intents in two isolated browser contexts with close mocked GPS fixes, activates both, checks geography-only payloads, local offer titles, desktop/mobile layout, acceptance isolation, reload persistence/sequence and Presence deletion. Screenshots are saved to ignored `test-results/`. This test validates browser behavior against mocked transport; it does not execute geographic or structured matching on a real backend.

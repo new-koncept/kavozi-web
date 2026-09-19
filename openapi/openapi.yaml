@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
-  title: Kavozi Location
+  title: Wing Pal Location
   version: v1
 servers:
-- url: http://localhost:18080
+- url: http://localhost:8080
   description: Generated server url
 paths:
   /v1/presences/{presenceId}/location:
@@ -177,6 +177,52 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AdministrativeAreaResponse"
+  /v1/intent-templates:
+    get:
+      tags:
+      - intent-template-controller
+      summary: List enabled intent templates
+      operationId: listIntentTemplates
+      responses:
+        "404":
+          description: Not Found
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IntentTemplateSummary"
+  /v1/intent-templates/{key}:
+    get:
+      tags:
+      - intent-template-controller
+      summary: Get an enabled intent template
+      operationId: getIntentTemplate
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "404":
+          description: Unknown or disabled template
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "200":
+          description: Template definition
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TemplateResponse"
   /.well-known/kavozi-location:
     get:
       tags:
@@ -208,6 +254,13 @@ paths:
       - presenceToken: []
 components:
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
     FixRequest:
       type: object
       properties:
@@ -274,17 +327,12 @@ components:
     AreasRequest:
       type: object
       properties:
-        revision:
-          type: integer
-          format: int64
-          minimum: 0
         areas:
           type: array
           items:
             $ref: "#/components/schemas/AreaRequest"
       required:
       - areas
-      - revision
     RecordedResponse:
       type: object
       properties:
@@ -354,6 +402,216 @@ components:
           enum:
           - CITY
           - DISTRICT
+    IntentTemplateSummary:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+    AgentConfiguration:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        label:
+          type: string
+        prompt:
+          type: string
+        maxLength:
+          type: integer
+          format: int32
+        required:
+          type: boolean
+    BooleanConstraints:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - BOOLEAN
+      required:
+      - kind
+    CodeConstraints:
+      type: object
+      properties:
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldOption"
+        kind:
+          type: string
+          enum:
+          - CODE
+      required:
+      - kind
+    FieldConstraints:
+      discriminator:
+        propertyName: kind
+        mapping:
+          NUMBER: "#/components/schemas/NumberConstraints"
+          TEXT: "#/components/schemas/TextConstraints"
+          CODE: "#/components/schemas/CodeConstraints"
+          SET: "#/components/schemas/SetConstraints"
+          RANGE: "#/components/schemas/RangeConstraints"
+          BOOLEAN: "#/components/schemas/BooleanConstraints"
+      oneOf:
+      - $ref: "#/components/schemas/NumberConstraints"
+      - $ref: "#/components/schemas/TextConstraints"
+      - $ref: "#/components/schemas/CodeConstraints"
+      - $ref: "#/components/schemas/SetConstraints"
+      - $ref: "#/components/schemas/RangeConstraints"
+      - $ref: "#/components/schemas/BooleanConstraints"
+    FieldOption:
+      type: object
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        order:
+          type: integer
+          format: int32
+    NumberConstraints:
+      type: object
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+        step:
+          type: number
+        unit:
+          type: string
+        kind:
+          type: string
+          enum:
+          - NUMBER
+      required:
+      - kind
+    RangeConstraints:
+      type: object
+      properties:
+        min:
+          type: number
+        max:
+          type: number
+        step:
+          type: number
+        unit:
+          type: string
+        kind:
+          type: string
+          enum:
+          - RANGE
+      required:
+      - kind
+    SetConstraints:
+      type: object
+      properties:
+        minItems:
+          type: integer
+          format: int32
+        maxItems:
+          type: integer
+          format: int32
+        elementType:
+          type: string
+          enum:
+          - BOOLEAN
+          - NUMBER
+          - CODE
+          - TEXT
+          - INSTANT
+          - REFERENCE
+        options:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldOption"
+        kind:
+          type: string
+          enum:
+          - SET
+      required:
+      - kind
+    TemplateField:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum:
+          - BOOLEAN
+          - NUMBER
+          - CODE
+          - TEXT
+          - SET
+          - RANGE
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+            - CLAIM
+            - REQUIREMENT
+            - PREFERENCE
+            - ENCOUNTER_OPTION
+          uniqueItems: true
+        operators:
+          type: array
+          items:
+            type: string
+            enum:
+            - EQ
+            - NEQ
+            - GT
+            - GTE
+            - LT
+            - LTE
+            - IN
+            - NOT_IN
+            - INTERSECTS
+            - CONTAINS_ALL
+            - RANGE_INTERSECTS
+        required:
+          type: boolean
+        constraints:
+          $ref: "#/components/schemas/FieldConstraints"
+    TemplateResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplateField"
+        agentConfiguration:
+          $ref: "#/components/schemas/AgentConfiguration"
+    TextConstraints:
+      type: object
+      properties:
+        minLength:
+          type: integer
+          format: int32
+        maxLength:
+          type: integer
+          format: int32
+        kind:
+          type: string
+          enum:
+          - TEXT
+      required:
+      - kind
     MetadataResponse:
       type: object
       properties:
@@ -403,6 +661,6 @@ components:
   securitySchemes:
     presenceToken:
       type: apiKey
-      description: KavoziPresence <token>; token returned once on presence creation
+      description: KavozilPresence <token>; token returned once on presence creation
       name: Authorization
       in: header

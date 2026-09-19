@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Alert, Box, Button, Card, CardContent, Divider, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Divider, Stack, Typography } from '@mui/material'
 import type { LocationMetadata } from '../application/metadata'
 import { validateAreas } from '../application/discoveryAreaService'
-import { areaLabel, formatRadius, type LocalDiscoveryArea } from '../model/local'
+import { areaLabel, type LocalDiscoveryArea } from '../model/local'
+import { RadiusInput } from './RadiusInput'
 import { AdministrativeAreaSelector } from './AdministrativeAreaSelector'
 
 export function DiscoveryAreaEditor({ initialAreas, metadata, busy, onSave }: {
@@ -25,10 +26,7 @@ export function DiscoveryAreaEditor({ initialAreas, metadata, busy, onSave }: {
     </Stack>)}
     {metadata.supportedAreaTypes.includes('RADIUS') && <Stack spacing={2}>
       <Typography sx={{ fontWeight: 600 }}>Search around me</Typography>
-      <TextField label="Radius (meters)" type="number" value={Number.isNaN(radius) ? '' : radius}
-        disabled={busy || full} onChange={(event) => setRadius(event.target.value === '' ? NaN : Number(event.target.value))}
-        error={!validRadius} helperText={`${formatRadius(metadata.minRadiusMeters)} – ${formatRadius(metadata.maxRadiusMeters)}${validRadius ? ` · Selected: ${formatRadius(radius)}` : ''}`}
-        slotProps={{ htmlInput: { min: metadata.minRadiusMeters, max: metadata.maxRadiusMeters, step: 'any' } }} />
+      <RadiusInput value={radius} onChange={setRadius} metadata={metadata} disabled={busy || full} />
       <Button variant="outlined" disabled={busy || full || !validRadius} onClick={() => add({ id: crypto.randomUUID(), kind: 'radius', meters: radius })}>Add radius area</Button>
     </Stack>}
     {metadata.supportedAreaTypes.includes('ADMINISTRATIVE_AREA') && <><Divider /><AdministrativeAreaSelector disabled={busy || full} onAdd={add} /></>}

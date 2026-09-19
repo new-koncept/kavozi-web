@@ -6,6 +6,7 @@ import { ThemeProvider } from '@mui/material'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import App from './App'
+import { fixtureIntent } from '../test/intentFixtures'
 import { theme } from './theme'
 import { createQueryClient } from './queryClient'
 import { apiState, base, position, resetApiState, server } from '../test/server'
@@ -16,8 +17,9 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterAll(() => server.close())
 const clients: ReturnType<typeof createQueryClient>[] = []
 let emitPosition: PositionCallback
-beforeEach(() => {
+beforeEach(async () => {
   resetApiState()
+  await db.intents.put(fixtureIntent())
   Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
     watchPosition: vi.fn((success: PositionCallback) => { emitPosition = success; queueMicrotask(() => success(position())); return 1 }),
     getCurrentPosition: vi.fn((success: PositionCallback) => success(position())), clearWatch: vi.fn(),
@@ -28,7 +30,7 @@ afterEach(async () => {
   for (const client of clients) { await client.cancelQueries(); client.clear() }
   clients.length = 0
   await withPresenceLock(async () => undefined)
-  await db.presences.clear(); await db.configurations.clear(); await db.preferences.clear()
+  await db.presences.clear(); await db.configurations.clear(); await db.preferences.clear(); await db.intents.clear()
   server.resetHandlers()
 })
 function mount() {
@@ -40,8 +42,9 @@ async function discover() {
   const user = userEvent.setup()
   await user.click(await screen.findByRole('button', { name: 'Enable location' }))
   await screen.findByText('Location active')
-  await user.click(screen.getByRole('button', { name: 'Add radius area' }))
-  await user.click(screen.getByRole('button', { name: 'Save discovery areas' }))
+  const toggle = await screen.findByRole('switch', { name: 'Activate Weekend diving' })
+  await waitFor(() => expect(toggle).toBeEnabled())
+  await user.click(toggle)
   await screen.findByText('You’re discoverable.')
   await waitFor(() => expect(apiState.inboxCalls).toBeGreaterThan(0))
   return user
@@ -67,13 +70,12 @@ describe('anonymous Location application', () => {
     const user = await discover()
     expect(apiState.fixes[0]).toMatchObject({ latitude: 48.1486, longitude: 17.1077, accuracyMeters: 18, sequence: 1 })
     expect(Date.parse(apiState.fixes[0].observedAt)).toBeGreaterThan(0)
-    expect(apiState.configurations[0]).toMatchObject({ revision: 1, areas: [{ type: 'RADIUS', radiusMeters: 5000 }] })
-    expect(apiState.auth.every((value) => value === 'KavoziPresence test-secret-1')).toBe(true)
+    expect(apiState.configurations.at(-1)).toMatchObject({ areas: [{ type: 'RADIUS', radiusMeters: 5000 }] })
+    expect(apiState.configurations.every((body) => Object.keys(body).join() === 'areas')).toBe(true)
+    expect(apiState.auth.every((value) => value === 'KavozilPresence test-secret-1')).toBe(true)
     expect(screen.queryByText('Something matched')).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Edit areas' }))
-    await user.click(screen.getByRole('button', { name: 'Remove 5 km around me' }))
-    await user.click(screen.getByRole('button', { name: 'Save discovery areas' }))
-    await waitFor(() => expect(apiState.configurations.at(-1)).toEqual({ revision: 2, areas: [] }))
+    await user.click(screen.getByRole('switch', { name: 'Activate Weekend diving' }))
+    await waitFor(() => expect(apiState.configurations.at(-1)).toEqual({ areas: [] }))
   })
   it('coalesces noisy fixes and does not send poor accuracy', async () => {
     mount(); await discover()
@@ -87,7 +89,7 @@ describe('anonymous Location application', () => {
     apiState.offer = true
     mount(); const user = await discover()
     await screen.findByText('Something matched')
-    expect(screen.getByText('Matched through your own areas:')).toBeInTheDocument()
+    expect(screen.getByText('Through your local intents:')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/48\.1486|17\.1077|test-secret/)
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByText('Interest recorded.')
@@ -101,16 +103,6 @@ describe('anonymous Location application', () => {
     await user.click(await screen.findByRole('button', { name: 'Pass' }))
     await waitFor(() => expect(screen.queryByText('Something matched')).not.toBeInTheDocument())
     expect(apiState.declined).toHaveLength(1)
-  })
-  it('debounces administrative-area search and sends the returned area ID', async () => {
-    mount()
-    const user = userEvent.setup()
-    await user.type(await screen.findByRole('combobox', { name: 'Search a city or district' }), 'Bratislava')
-    await user.click(await screen.findByRole('option', { name: /Bratislava City/ }))
-    await user.click(screen.getByRole('button', { name: 'Save discovery areas' }))
-    await waitFor(() => expect(apiState.configurations).toHaveLength(1))
-    expect(apiState.configurations[0].areas[0]).toMatchObject({ type: 'ADMINISTRATIVE_AREA', administrativeAreaId: '00000000-0000-4000-8000-888888888888' })
-    expect(apiState.searches).toEqual(['Bratislava'])
   })
   it('replaces invalid credentials once and then stops instead of looping', async () => {
     server.use(http.put(`${base}/v1/presences/:presenceId/location`, () => new HttpResponse(null, { status: 401 })))

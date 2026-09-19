@@ -1,14 +1,17 @@
 import Dexie, { type Table } from 'dexie'
 import type { LocalDiscoveryArea, LocalPresence } from '../model/local'
+import type { Intent } from '../../intent/model/Intent'
 
 export class LocationDatabase extends Dexie {
   presences!: Table<LocalPresence, string>
   configurations!: Table<{ key: 'areas'; areas: LocalDiscoveryArea[] }, string>
   preferences!: Table<{ key: 'discovery'; stopped: boolean }, string>
+  intents!: Table<Intent, string>
 
   constructor(name = 'kavozi-location') {
     super(name)
     this.version(1).stores({ presences: 'key', configurations: 'key', preferences: 'key' })
+    this.version(2).stores({ intents: 'id, templateKey, updatedAt' })
   }
 }
 

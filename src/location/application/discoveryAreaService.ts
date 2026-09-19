@@ -25,7 +25,7 @@ export function replaceDiscoveryAreas(id: string, areas: LocalDiscoveryArea[], m
     if (!presence || presence.id !== id) throw new ApiError(401)
     await discoveryAreaRepository.save(areas)
     const revision = await presenceRepository.reserve(id, 'revision')
-    const response = await locationClient.replaceDiscoveryAreas(presence, { revision, areas: toTransportAreas(areas) })
+    const response = await locationClient.replaceDiscoveryAreas(presence, { areas: toTransportAreas(areas) })
     if (response.status !== 'RECORDED') throw new ApiError(502)
     await presenceRepository.update(id, { syncedRevision: revision })
   })
