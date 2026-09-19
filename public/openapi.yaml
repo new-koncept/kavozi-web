@@ -348,6 +348,8 @@ components:
           format: uuid
         presenceToken:
           type: string
+          description: "Opaque token returned only at creation. Authenticate subsequent\
+            \ presence requests with `Authorization: KavoziPresence <presenceToken>`."
         expiresAt:
           type: string
           format: date-time
@@ -661,6 +663,9 @@ components:
   securitySchemes:
     presenceToken:
       type: apiKey
-      description: KavozilPresence <token>; token returned once on presence creation
+      description: "Use `Authorization: KavoziPresence <presenceToken>`, where `presenceToken`\
+        \ is returned once by `POST /v1/presences`. Supply the complete header value,\
+        \ including the case-sensitive `KavoziPresence ` prefix, in Swagger UI and\
+        \ generated clients. The token must belong to the path's `presenceId`."
       name: Authorization
       in: header

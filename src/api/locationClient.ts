@@ -38,7 +38,7 @@ export function createLocationClient(baseUrl = API_BASE_URL) {
     return response.data
   }
   // The prefix comes from the supplied security scheme, not the product name.
-  const auth = (presence: Credentials) => ({ Authorization: `KavozilPresence ${presence.token}` })
+  const auth = (presence: Credentials) => ({ Authorization: `KavoziPresence ${presence.token}` })
   async function protectedRequest<T>(presence: Credentials, request: () => Promise<T>) {
     try { return await request() } catch (error) {
       if (error instanceof ApiError && error.invalidPresence) {

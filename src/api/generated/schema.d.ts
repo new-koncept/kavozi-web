@@ -231,6 +231,7 @@ export interface components {
         PresenceResponse: {
             /** Format: uuid */
             presenceId?: string;
+            /** @description Opaque token returned only at creation. Authenticate subsequent presence requests with `Authorization: KavoziPresence <presenceToken>`. */
             presenceToken?: string;
             /** Format: date-time */
             expiresAt?: string;

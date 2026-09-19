@@ -46,12 +46,12 @@ Closing a tab does not delete a Presence; server expiry applies. Background-tab 
 
 ## Source of truth and generation
 
-The supplied **`openapi/openapi.yaml`** remains unchanged. Generate transport declarations using:
+The contract is **`public/openapi.yaml`**, with its server URL configured for port 8080. Generate transport declarations using:
 
 ```sh
 npm run generate:api
 # equivalent:
-npx openapi-typescript openapi/openapi.yaml -o src/api/generated/schema.d.ts
+npx openapi-typescript public/openapi.yaml -o src/api/generated/schema.d.ts
 ```
 
 Both clients use generated `paths`/`components` types with `openapi-fetch`; there are no hand-written template DTO copies.
@@ -64,10 +64,10 @@ Current changes in the supplied contract:
 - `AreasRequest` now contains **only `areas`**. No revision is sent to Location.
 - Metadata remains `GET /.well-known/kavozi-location`.
 - The default server is now port **8080**.
-- The security scheme description literally specifies **`KavozilPresence <token>`**, including the extra `l`. The centralized header follows that supplied spelling; it was not silently corrected to the previous `KavoziPresence`.
+- Protected Presence requests send **`Authorization: KavoziPresence <presenceToken>`** with the exact case-sensitive prefix. The token belongs to the path’s Presence ID. Creation, metadata, administrative search, and template requests remain public.
 - Template endpoints document `ErrorResponse` on 404. UI errors remain safe, status-based messages, without displaying raw server exceptions.
 
-**Live verification:** on 2026-09-18 nothing was listening at `localhost:8080`, including when checked outside the sandbox. Tests pass against contract-shaped mocks. Real backend compatibility, particularly the auth-prefix spelling, is not yet verified. No backend or OpenAPI changes were made.
+**Live verification:** on 2026-09-18 nothing was listening at `localhost:8080`, including when checked outside the sandbox. Tests pass against contract-shaped mocks. Live backend compatibility was not verified in that check. The specification supplied on 2026-09-19 corrects the auth prefix to `KavoziPresence`. The frontend default and OpenAPI server URL use port 8080, as requested. No backend code was changed.
 
 ## Structure
 

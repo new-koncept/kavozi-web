@@ -22,7 +22,7 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
       state.creates++
       return json(presence, 201)
     }
-    expect(request.headers().authorization === `KavozilPresence ${presence.presenceToken}`).toBe(true)
+    expect(request.headers().authorization === `KavoziPresence ${presence.presenceToken}`).toBe(true)
     expect(path.startsWith(`/v1/presences/${presence.presenceId}`)).toBe(true)
     if (path.endsWith('/location')) {
       const fix = request.postDataJSON() as Schema['FixRequest']

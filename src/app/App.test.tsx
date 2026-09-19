@@ -72,7 +72,7 @@ describe('anonymous Location application', () => {
     expect(Date.parse(apiState.fixes[0].observedAt)).toBeGreaterThan(0)
     expect(apiState.configurations.at(-1)).toMatchObject({ areas: [{ type: 'RADIUS', radiusMeters: 5000 }] })
     expect(apiState.configurations.every((body) => Object.keys(body).join() === 'areas')).toBe(true)
-    expect(apiState.auth.every((value) => value === 'KavozilPresence test-secret-1')).toBe(true)
+    expect(apiState.auth.every((value) => value === 'KavoziPresence test-secret-1')).toBe(true)
     expect(screen.queryByText('Something matched')).not.toBeInTheDocument()
     await user.click(screen.getByRole('switch', { name: 'Activate Weekend diving' }))
     await waitFor(() => expect(apiState.configurations.at(-1)).toEqual({ areas: [] }))

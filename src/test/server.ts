@@ -17,7 +17,7 @@ export function resetApiState() { apiState = initialState() }
 function authorized(request: Request) {
   const auth = request.headers.get('Authorization') ?? ''
   apiState.auth.push(auth)
-  return /^KavozilPresence test-secret-\d+$/.test(auth)
+  return /^KavoziPresence test-secret-\d+$/.test(auth)
 }
 export const handlers = [
   http.get(`${base}/v1/intent-templates`, ({ request }) => {
