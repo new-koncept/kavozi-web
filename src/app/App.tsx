@@ -1,7 +1,8 @@
+import { ProjectionError } from '../intent/application/intentDiscoveryProjection'
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Alert, Box, Button, Chip, CircularProgress, Container, Stack, Typography } from '@mui/material'
-import { errorMessage } from '../api/locationClient'
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Alert, Box, Button, Chip, Container, Stack, Typography } from '@mui/material'
+import { ApiError, errorMessage } from '../api/locationClient'
 import { loadMetadata } from '../location/application/metadata'
 import { usePresence } from '../location/hooks/usePresence'
 import { DiscoverySession } from '../location/components/DiscoverySession'
@@ -16,11 +17,16 @@ export default function App() {
   const metadata = useQuery({ queryKey: ['metadata'], queryFn: loadMetadata, staleTime: 120_000, refetchInterval: 120_000 })
   const intents = useIntents()
   const templates = useCurrentTemplates(intents.data)
+  const writing = useIsMutating({ mutationKey: ['intent-write'] }) > 0
   const sync = useQuery({
-    queryKey: ['intent-discovery', presence.data?.id, intents.data.map((i) => [i.id, i.updatedAt, i.active]), templates.map((t) => t.dataUpdatedAt), metadata.dataUpdatedAt],
+    queryKey: ['intent-discovery', presence.data?.id, intents.data.map((i) => [i.id, i.updatedAt, i.active]), templates.map((t) => t.data), metadata.data],
     queryFn: () => intentService.synchronize(metadata.data!),
-    enabled: Boolean(presence.data && metadata.data && !intents.loading && !metadata.isError && !presence.stop.isPending),
-    staleTime: 120_000, refetchInterval: presence.data ? 120_000 : false,
+    enabled: Boolean(presence.data && metadata.data && !intents.loading && !metadata.isError && !presence.stop.isPending && !writing),
+    staleTime: 120_000, refetchInterval: (query) => {
+      const error = query.state.error
+      if (error instanceof IntentError || error instanceof ProjectionError || (error instanceof ApiError && error.status >= 400 && error.status < 500)) return false
+      return presence.data ? 120_000 : false
+    },
   })
   const onChanged = () => {
     void client.invalidateQueries({ queryKey: ['intent-discovery'] })
@@ -38,27 +44,24 @@ export default function App() {
       <Button aria-current={page === 'intents' ? 'page' : undefined} onClick={() => setPage('intents')}>Your intents</Button>
     </Stack>
     <Stack spacing={3}>
-      {presence.notice && <Alert severity="info">{presence.notice}</Alert>}
-      {error && <Alert severity="warning" action={<Button onClick={() => {
+      {page === 'intents' && presence.notice && <Alert severity="info">{presence.notice}</Alert>}
+      {page === 'intents' && error && <Alert severity="warning" action={<Button onClick={() => {
         if (metadata.isError) void metadata.refetch()
         if (presence.isError) void presence.refetch()
         presence.start.reset(); presence.stop.reset()
       }}>Dismiss / retry</Button>}>{errorMessage(error)}</Alert>}
       {page === 'intents' && <IntentsPage intents={intents.data} metadata={metadata.isError ? undefined : metadata.data} onChanged={onChanged} />}
       <Box sx={{ display: page === 'discovery' ? 'block' : 'none' }}>
-        {pending ? <Box sx={{ py: 8, textAlign: 'center' }}><CircularProgress size={28} /><Typography sx={{ mt: 2 }}>Preparing your private space…</Typography></Box>
-          : presence.data && metadata.data && !metadata.isError
-            ? <DiscoverySession key={presence.data.id} presence={presence.data} metadata={metadata.data} intents={intents.data}
-              synchronized={sync.isSuccess} syncing={sync.isFetching}
-              syncError={sync.isError ? sync.error instanceof IntentError ? sync.error.message : errorMessage(sync.error) : undefined}
-              onRetry={() => void sync.refetch()} stopping={presence.stop.isPending} onStop={() => presence.stop.mutate()}
-              onManage={() => setPage('intents')} onChanged={onChanged} />
-            : presence.data ? <Stack spacing={2}><Typography>Discovery needs the service configuration before it can begin.</Typography>
-              <Button disabled={presence.stop.isPending} onClick={() => presence.stop.mutate()}>Stop discovery</Button></Stack>
-              : <Box sx={{ py: 5 }}><Typography variant="h3" sx={{ mb: 2 }}>A little space for possibility.</Typography>
-                <Typography color="text.secondary" sx={{ mb: 4 }}>No account needed. Your intents stay on this device.</Typography>
-                <Button variant="contained" size="large" disabled={presence.start.isPending || !metadata.data} onClick={() => presence.start.mutate()}>
-                  {presence.start.isPending ? 'Starting…' : 'Start discovery'}</Button></Box>}
+        <DiscoverySession presence={presence.data} metadata={metadata.isError ? undefined : metadata.data} intents={intents.data}
+          loading={pending || presence.start.isPending} error={Boolean(error)}
+          synchronized={sync.isSuccess} syncing={sync.isFetching || writing}
+          syncError={sync.isError ? (sync.error instanceof IntentError || sync.error instanceof ProjectionError) ? sync.error.message : errorMessage(sync.error) : undefined}
+          onRetry={async () => (await sync.refetch()).isSuccess} stopping={presence.stop.isPending} onStop={() => presence.stop.mutate()}
+          onStart={() => presence.start.mutate()} onRecover={() => {
+            if (metadata.isError) void metadata.refetch()
+            if (presence.isError) void presence.refetch()
+            presence.start.reset(); presence.stop.reset()
+          }} onManage={() => setPage('intents')} onChanged={onChanged} />
       </Box>
     </Stack>
   </Container>

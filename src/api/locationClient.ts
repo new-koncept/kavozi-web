@@ -54,8 +54,8 @@ export function createLocationClient(baseUrl = API_BASE_URL) {
       result(client.GET('/v1/location/administrative-areas', { params: { query: { query, type } }, signal })),
     updateLocation: (presence: Credentials, body: Schema['FixRequest']) => protectedRequest(presence, () =>
       result(client.PUT('/v1/presences/{presenceId}/location', { headers: auth(presence), params: { path: { presenceId: presence.id } }, body }))),
-    replaceDiscoveryAreas: (presence: Credentials, body: Schema['AreasRequest']) => protectedRequest(presence, () =>
-      result(client.PUT('/v1/presences/{presenceId}/discovery-areas', { headers: auth(presence), params: { path: { presenceId: presence.id } }, body }))),
+    replaceDiscoveryProjections: (presence: Credentials, body: Schema['DiscoveryProjectionsRequest']) => protectedRequest(presence, () =>
+      result(client.PUT('/v1/presences/{presenceId}/discovery-projections', { headers: auth(presence), params: { path: { presenceId: presence.id } }, body }))),
     getInbox: (presence: Credentials, signal?: AbortSignal) => protectedRequest(presence, () =>
       result(client.GET('/v1/presences/{presenceId}/inbox', { headers: auth(presence), params: { path: { presenceId: presence.id } }, signal }))),
     acceptOffer: (presence: Credentials, offerHandle: string) => protectedRequest(presence, () =>

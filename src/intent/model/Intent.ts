@@ -27,7 +27,7 @@ export interface Intent {
   agentInstruction?: string
   pendingDeletion?: boolean
   active: boolean
-  discoveryAreaId: string
+  discoveryProjectionId: string
   createdAt: string
   updatedAt: string
 }
@@ -35,11 +35,11 @@ export interface Intent {
 export function newIntent(templateKey: string): Intent {
   const now = new Date().toISOString()
   return { id: crypto.randomUUID(), templateKey, title: '', claims: {}, requirements: [], preferences: [],
-    encounterOptions: {}, active: false, discoveryAreaId: crypto.randomUUID(), createdAt: now, updatedAt: now }
+    encounterOptions: {}, active: false, discoveryProjectionId: crypto.randomUUID(), createdAt: now, updatedAt: now }
 }
 
 export function intentsForOffer(ids: readonly string[], intents: Intent[]) {
-  return intents.filter((intent) => ids.includes(intent.discoveryAreaId))
+  return intents.filter((intent) => ids.includes(intent.discoveryProjectionId))
 }
 
 export function formatIntentValue(value: IntentFieldValue) {

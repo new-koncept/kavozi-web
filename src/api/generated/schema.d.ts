@@ -20,7 +20,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/presences/{presenceId}/discovery-areas": {
+    "/v1/presences/{presenceId}/discovery-projections": {
         parameters: {
             query?: never;
             header?: never;
@@ -28,7 +28,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put: operations["replaceDiscoveryAreas"];
+        /** Replace all discovery projections; only mutual geography and hard-filter PASS produce offers */
+        put: operations["replaceDiscoveryProjections"];
         post?: never;
         delete?: never;
         options?: never;
@@ -211,9 +212,36 @@ export interface components {
             /** Format: date-time */
             expiresAt?: string;
         };
-        AreaRequest: {
+        BooleanValue: {
+            value: boolean;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "BOOLEAN";
+        };
+        CodeValue: {
+            value: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "CODE";
+        };
+        DiscoveryProjectionRequest: {
             /** Format: uuid */
             id: string;
+            geography: components["schemas"]["GeographyRequest"];
+            claims?: {
+                [key: string]: components["schemas"]["DiscoveryValue"];
+            };
+            requirements?: components["schemas"]["HardRequirementRequest"][];
+        };
+        DiscoveryProjectionsRequest: {
+            projections: components["schemas"]["DiscoveryProjectionRequest"][];
+        };
+        DiscoveryValue: components["schemas"]["BooleanValue"] | components["schemas"]["NumberValue"] | components["schemas"]["CodeValue"] | components["schemas"]["TextValue"] | components["schemas"]["SetValue"] | components["schemas"]["RangeValue"];
+        GeographyRequest: {
             /** @enum {string} */
             type: "RADIUS" | "ADMINISTRATIVE_AREA";
             /** Format: double */
@@ -221,8 +249,47 @@ export interface components {
             /** Format: uuid */
             administrativeAreaId?: string;
         };
-        AreasRequest: {
-            areas: components["schemas"]["AreaRequest"][];
+        HardRequirementRequest: {
+            field: string;
+            /** @enum {string} */
+            operator: "EQ" | "NEQ" | "GT" | "GTE" | "LT" | "LTE" | "IN" | "NOT_IN" | "INTERSECTS" | "CONTAINS_ALL" | "RANGE_INTERSECTS";
+            value: components["schemas"]["DiscoveryValue"];
+        };
+        NumberValue: {
+            value: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "NUMBER";
+        };
+        RangeValue: {
+            lower: number;
+            upper: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "RANGE";
+        };
+        ScalarValue: components["schemas"]["BooleanValue"] | components["schemas"]["NumberValue"] | components["schemas"]["CodeValue"] | components["schemas"]["TextValue"];
+        SetValue: {
+            /** @enum {string} */
+            valueType: "BOOLEAN" | "NUMBER" | "CODE" | "TEXT";
+            values: components["schemas"]["ScalarValue"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "SET";
+        };
+        TextValue: {
+            value: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "TEXT";
         };
         RecordedResponse: {
             /** @enum {string} */
@@ -248,7 +315,7 @@ export interface components {
         OfferResponse: {
             /** Format: uuid */
             offerHandle?: string;
-            localDiscoveryAreaIds?: string[];
+            localDiscoveryProjectionIds?: string[];
             /** @enum {string} */
             status?: "PENDING" | "ACCEPTED";
             /** Format: date-time */
@@ -376,8 +443,8 @@ export interface components {
             /** Format: int64 */
             offerTtlSeconds?: number;
             /** Format: int32 */
-            maxDiscoveryAreas?: number;
-            supportedAreaTypes?: ("RADIUS" | "ADMINISTRATIVE_AREA")[];
+            maxDiscoveryProjections?: number;
+            supportedGeographyTypes?: ("RADIUS" | "ADMINISTRATIVE_AREA")[];
             /** Format: double */
             minRadiusMeters?: number;
             /** Format: double */
@@ -386,6 +453,16 @@ export interface components {
             maxAccuracyMeters?: number;
             /** Format: int64 */
             futureToleranceSeconds?: number;
+            /** Format: int32 */
+            maxClaimsPerProjection?: number;
+            /** Format: int32 */
+            maxRequirementsPerProjection?: number;
+            /** Format: int32 */
+            maxSetItems?: number;
+            /** Format: int32 */
+            maxTextLength?: number;
+            /** Format: int32 */
+            maxProjectionRequestBytes?: number;
         };
     };
     responses: never;
@@ -422,7 +499,7 @@ export interface operations {
             };
         };
     };
-    replaceDiscoveryAreas: {
+    replaceDiscoveryProjections: {
         parameters: {
             query?: never;
             header?: never;
@@ -433,7 +510,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AreasRequest"];
+                "application/json": components["schemas"]["DiscoveryProjectionsRequest"];
             };
         };
         responses: {

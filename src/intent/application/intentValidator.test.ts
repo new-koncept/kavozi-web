@@ -3,8 +3,6 @@ import { diveTemplate, fixtureIntent } from '../../test/intentFixtures'
 import { metadata } from '../../test/fixtures'
 import { fieldEditorConstraints, supportsEditor } from './fieldSemantics'
 import { validateIntent, validatePredicateValue, validateValue } from './intentValidator'
-import { buildLocationDiscoveryAreas } from './intentDiscoveryProjection'
-import { intentsForOffer } from '../model/Intent'
 import type { TemplateField } from '../api/intentTemplateClient'
 
 const field = (key: string) => diveTemplate.fields!.find((f) => f.key === key)!
@@ -81,20 +79,5 @@ describe('generic template semantics and local validation', () => {
     expect(validateIntent(fixtureIntent({ geography: { type: 'ADMINISTRATIVE_AREA', administrativeAreaId: 'missing', displayName: 'City', administrativeAreaType: 'CITY' } }), diveTemplate, metadata).valid).toBe(false)
     const reference: TemplateField = { type: 'SET', constraints: { kind: 'SET', elementType: 'REFERENCE' } }
     expect(supportsEditor(fieldEditorConstraints(reference))).toBe(false)
-  })
-})
-
-describe('private geography boundary', () => {
-  it('projects complete active lists with stable area IDs and geography only', () => {
-    const radius = fixtureIntent({ active: true })
-    const city = fixtureIntent({ active: true, geography: { type: 'ADMINISTRATIVE_AREA', administrativeAreaId: crypto.randomUUID(), displayName: 'Bratislava', administrativeAreaType: 'CITY' } })
-    const inactive = fixtureIntent()
-    expect(buildLocationDiscoveryAreas([radius, city, inactive])).toEqual([
-      { id: radius.discoveryAreaId, type: 'RADIUS', radiusMeters: 5000 },
-      { id: city.discoveryAreaId, type: 'ADMINISTRATIVE_AREA', administrativeAreaId: city.geography!.type === 'ADMINISTRATIVE_AREA' ? city.geography!.administrativeAreaId : '' },
-    ])
-    expect(buildLocationDiscoveryAreas([])).toEqual([])
-    expect(intentsForOffer([city.discoveryAreaId, 'unrelated'], [radius, city])).toEqual([city])
-    expect(JSON.stringify(buildLocationDiscoveryAreas([radius]))).not.toMatch(/claims|requirements|preferences|templateKey|agentInstruction|title/)
   })
 })

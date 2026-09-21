@@ -9,7 +9,7 @@ import { metadata, fixturePresence } from './fixtures'
 export { metadata, fixturePresence } from './fixtures'
 function initialState() {
   return { templates: structuredClone([diveTemplate, coffeeTemplate]) as Template[], templateRequests: [] as string[], creates: 0, createAuth: [] as (string | null)[], auth: [] as string[],
-    fixes: [] as Schema['FixRequest'][], configurations: [] as Schema['AreasRequest'][],
+    fixes: [] as Schema['FixRequest'][], configurations: [] as Schema['DiscoveryProjectionsRequest'][],
     inboxCalls: 0, offer: false, accepted: [] as string[], declined: [] as string[], deletes: 0, searches: [] as string[] }
 }
 export let apiState = initialState()
@@ -43,9 +43,9 @@ export const handlers = [
     apiState.fixes.push(fix)
     return HttpResponse.json({ status: 'ACCEPTED', sequence: fix.sequence, expiresAt: new Date(Date.now() + 3600_000).toISOString() } satisfies Schema['FixResponse'])
   }),
-  http.put(`${base}/v1/presences/:presenceId/discovery-areas`, async ({ request }) => {
+  http.put(`${base}/v1/presences/:presenceId/discovery-projections`, async ({ request }) => {
     if (!authorized(request)) return new HttpResponse(null, { status: 401 })
-    apiState.configurations.push(await request.json() as Schema['AreasRequest'])
+    apiState.configurations.push(await request.json() as Schema['DiscoveryProjectionsRequest'])
     return HttpResponse.json({ status: 'RECORDED' } satisfies Schema['RecordedResponse'])
   }),
   http.get(`${base}/v1/presences/:presenceId/inbox`, ({ request }) => {
@@ -53,7 +53,7 @@ export const handlers = [
     apiState.inboxCalls++
     return HttpResponse.json({ pollAfterSeconds: 45, offers: apiState.offer && !apiState.declined.length ? [{
       offerHandle: '00000000-0000-4000-8000-999999999999',
-      localDiscoveryAreaIds: apiState.configurations.at(-1)?.areas.map((area) => area.id) ?? [],
+      localDiscoveryProjectionIds: apiState.configurations.at(-1)?.projections.map((area) => area.id) ?? [],
       status: apiState.accepted.length ? 'ACCEPTED' : 'PENDING', expiresAt: new Date(Date.now() + 120_000).toISOString(),
     }] : [] } satisfies Schema['InboxResponse'])
   }),

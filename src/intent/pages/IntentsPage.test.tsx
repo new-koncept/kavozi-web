@@ -26,7 +26,7 @@ afterEach(async () => {
   for (const client of clients) { await client.cancelQueries(); client.clear() }
   clients.length = 0
   await withPresenceLock(async () => undefined)
-  await db.intents.clear(); await db.presences.clear(); await db.preferences.clear(); await db.configurations.clear()
+  await db.intents.clear(); await db.presences.clear(); await db.preferences.clear()
   server.resetHandlers()
 })
 function mount() {
@@ -88,32 +88,32 @@ it('fetches the dynamic catalogue and definition, creates, saves, reloads and ed
   await u.clear(title); await paste(u, title, 'Renamed dives')
   await u.click(screen.getByRole('button', { name: 'Save intent' }))
   await screen.findByRole('button', { name: 'Create intent' })
-  expect(await db.intents.get(saved.id)).toMatchObject({ title: 'Renamed dives', discoveryAreaId: saved.discoveryAreaId })
+  expect(await db.intents.get(saved.id)).toMatchObject({ title: 'Renamed dives', discoveryProjectionId: saved.discoveryProjectionId })
 }, 15000)
 
-it('activates two Intents, sends geography only, maps an anonymous offer to local titles, and deactivates', async () => {
+it('activates two Intents, sends deterministic projections only, maps an anonymous offer to local titles, and deactivates', async () => {
   const dive = fixtureIntent(), coffee = fixtureIntent({ title: 'Coffee plans', templateKey: 'coffee', agentInstruction: undefined })
   await db.intents.bulkPut([dive, coffee]); apiState.offer = true
   mount(); const u = user()
   await u.click(await screen.findByRole('button', { name: 'Enable location' }))
-  await screen.findByText('Location active')
+  await waitFor(() => expect(apiState.fixes.length).toBeGreaterThan(0))
   for (const title of ['Weekend diving', 'Coffee plans']) {
-    const toggle = await screen.findByRole('switch', { name: `Activate ${title}` })
+    const toggle = await screen.findByRole('switch', { name: `Turn ${title} on` })
     await waitFor(() => expect(toggle).toBeEnabled()); await u.click(toggle)
     await waitFor(() => expect(toggle).toBeChecked())
   }
-  await waitFor(() => expect(apiState.configurations.at(-1)?.areas).toHaveLength(2))
+  await waitFor(() => expect(apiState.configurations.at(-1)?.projections).toHaveLength(2))
   const payload = apiState.configurations.at(-1)!
-  expect(Object.keys(payload)).toEqual(['areas'])
-  expect(payload.areas.every((area) => Object.keys(area).sort().join() === 'id,radiusMeters,type')).toBe(true)
+  expect(Object.keys(payload)).toEqual(['projections'])
+  expect(payload.projections.every((area) => Object.keys(area).sort().join() === 'claims,geography,id,requirements')).toBe(true)
   // Refetch after the normal inbox cadence is tested separately; here refresh the mocked response explicitly.
   await act(async () => { await clients.at(-1)!.invalidateQueries({ queryKey: ['inbox'] }) })
   await screen.findByText('Through your local intents:')
   expect(screen.getAllByText('Weekend diving').length).toBeGreaterThan(1)
   await waitFor(() => expect(screen.getAllByText('Coffee plans').length).toBeGreaterThan(1))
   expect(document.body.textContent).not.toMatch(/48\.1486|test-secret/)
-  await u.click(screen.getByRole('switch', { name: 'Activate Weekend diving' }))
-  await waitFor(() => expect(apiState.configurations.at(-1)?.areas.map((area) => area.id)).toEqual([coffee.discoveryAreaId]))
+  await u.click(screen.getByRole('switch', { name: 'Turn Weekend diving off' }))
+  await waitFor(() => expect(apiState.configurations.at(-1)?.projections.map((area) => area.id)).toEqual([coffee.discoveryProjectionId]))
 })
 
 it('reuses debounced administrative search for Intent geography and persists the selected ID', async () => {
@@ -134,14 +134,15 @@ it('preserves a changed-template Intent, marks Needs review, and withdraws its a
   const intent = fixtureIntent({ active: true, claims: { certification: { type: 'CODE', value: 'AOW' } } })
   await db.intents.put(intent)
   const { client } = mount()
-  await waitFor(() => expect(apiState.configurations.at(-1)?.areas).toHaveLength(1))
+  await waitFor(() => expect(apiState.configurations.at(-1)?.projections).toHaveLength(1))
   apiState.templates[0].fields = []
   await act(async () => { await client.invalidateQueries({ queryKey: ['intentTemplate'] }) })
+  await waitFor(() => expect(screen.getByRole('switch', { name: 'Turn Weekend diving on' })).not.toBeChecked())
+  expect(screen.getByRole('switch', { name: 'Turn Weekend diving on' })).toBeDisabled()
+  await user().click(screen.getByRole('button', { name: 'Your intents' }))
   await screen.findByText('Needs review')
-  await waitFor(() => expect(screen.getByRole('switch', { name: 'Activate Weekend diving' })).not.toBeChecked())
-  expect(screen.getByRole('switch', { name: 'Activate Weekend diving' })).toBeDisabled()
   expect((await db.intents.get(intent.id))?.claims).toEqual(intent.claims)
-  await waitFor(() => expect(apiState.configurations.at(-1)).toEqual({ areas: [] }))
+  await waitFor(() => expect(apiState.configurations.at(-1)).toEqual({ projections: [] }))
 })
 
 it('confirms deletion of an active Intent before synchronization and local removal', async () => {
@@ -153,5 +154,5 @@ it('confirms deletion of an active Intent before synchronization and local remov
   expect(await db.intents.get(intent.id)).toBeDefined()
   await u.click(screen.getByRole('button', { name: 'Deactivate and delete' }))
   await waitFor(async () => expect(await db.intents.get(intent.id)).toBeUndefined())
-  expect(apiState.configurations.at(-1)).toEqual({ areas: [] })
+  expect(apiState.configurations.at(-1)).toEqual({ projections: [] })
 })

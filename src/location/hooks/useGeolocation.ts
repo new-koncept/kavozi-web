@@ -9,17 +9,18 @@ export type LocationState = {
   message?: string
 }
 
-export function useGeolocation(id: string | undefined, enabled: boolean, metadata: LocationMetadata, interval: number, attempt = 0) {
+// Acquisition state only. Accepted-fix expiry is driven independently by persisted
+// acceptedObservedAt in DiscoverySession, so errors and watch restarts cannot cancel it.
+export function useGeolocation(id: string | undefined, enabled: boolean, metadata: LocationMetadata | undefined, interval: number, attempt = 0) {
   const [state, setState] = useState<LocationState>({ status: 'idle' })
   useEffect(() => {
-    if (!enabled || !id) return
+    if (!enabled || !id || !metadata) return
     let stopped = false
     let sending = false
     let denied = false
     let latestEvent = 0
     let pending: GeolocationPosition | undefined
     let timer: ReturnType<typeof setTimeout> | undefined
-    let freshnessTimer: ReturnType<typeof setTimeout> | undefined
     const update = (next: LocationState) => { if (!stopped) setState(next) }
     update({ status: 'acquiring' })
     if (!navigator.geolocation) { update({ status: 'unavailable' }); return }
@@ -39,9 +40,6 @@ export function useGeolocation(id: string | undefined, enabled: boolean, metadat
           timer = setTimeout(() => { timer = undefined; void flush() }, response.wait)
         } else {
           if (event === latestEvent) update({ status: 'active', accuracy: position.coords.accuracy })
-          clearTimeout(freshnessTimer)
-          freshnessTimer = setTimeout(() => update({ status: 'stale', accuracy: position.coords.accuracy }),
-            Math.max(1, position.timestamp + metadata.locationFreshnessSeconds * 1000 - Date.now()))
         }
       } catch (error) { if (event === latestEvent) update({ status: 'rejected', message: errorMessage(error), accuracy: position.coords.accuracy }) }
       finally {
@@ -57,7 +55,6 @@ export function useGeolocation(id: string | undefined, enabled: boolean, metadat
       if (problem) {
         pending = undefined
         clearTimeout(timer); timer = undefined
-        clearTimeout(freshnessTimer)
         update({ status: problem, accuracy: position.coords.accuracy }); return
       }
       pending = position
@@ -68,7 +65,6 @@ export function useGeolocation(id: string | undefined, enabled: boolean, metadat
       denied = error.code === 1
       pending = undefined
       clearTimeout(timer); timer = undefined
-      clearTimeout(freshnessTimer)
       update({ status: error.code === 1 ? 'denied' : 'unavailable' })
     }
     const options: PositionOptions = { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
@@ -80,7 +76,6 @@ export function useGeolocation(id: string | undefined, enabled: boolean, metadat
     return () => {
       stopped = true
       clearTimeout(timer)
-      clearTimeout(freshnessTimer)
       clearInterval(refresh)
       navigator.geolocation.clearWatch(watch)
     }

@@ -1,10 +1,9 @@
 import Dexie, { type Table } from 'dexie'
-import type { LocalDiscoveryArea, LocalPresence } from '../model/local'
+import type { LocalPresence } from '../model/local'
 import type { Intent } from '../../intent/model/Intent'
 
 export class LocationDatabase extends Dexie {
   presences!: Table<LocalPresence, string>
-  configurations!: Table<{ key: 'areas'; areas: LocalDiscoveryArea[] }, string>
   preferences!: Table<{ key: 'discovery'; stopped: boolean }, string>
   intents!: Table<Intent, string>
 
@@ -12,6 +11,13 @@ export class LocationDatabase extends Dexie {
     super(name)
     this.version(1).stores({ presences: 'key', configurations: 'key', preferences: 'key' })
     this.version(2).stores({ intents: 'id, templateKey, updatedAt' })
+    this.version(3).stores({ configurations: null }).upgrade(async (transaction) => {
+      // Read the legacy property only here; preserve the existing UUID and all user data.
+      await transaction.table('intents').toCollection().modify((intent: Record<string, unknown>) => {
+        intent.discoveryProjectionId ??= intent.discoveryAreaId ?? crypto.randomUUID()
+        delete intent.discoveryAreaId
+      })
+    })
   }
 }
 
@@ -29,7 +35,7 @@ export const presenceRepository = {
       return updated
     })
   },
-  async reserve(id: string, field: 'sequence' | 'revision') {
+  async reserve(id: string, field: 'sequence') {
     return db.transaction('rw', db.presences, async () => {
       const current = await db.presences.get('current')
       if (!current || current.id !== id) throw new Error('Presence changed. Please try again.')
@@ -39,9 +45,4 @@ export const presenceRepository = {
       return value
     })
   },
-}
-
-export const discoveryAreaRepository = {
-  async get() { return (await db.configurations.get('areas'))?.areas ?? [] },
-  save: (areas: LocalDiscoveryArea[]) => db.configurations.put({ key: 'areas', areas }),
 }

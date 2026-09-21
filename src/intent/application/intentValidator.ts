@@ -74,10 +74,10 @@ export function validateIntent(intent: Intent, template: Template | undefined, m
   const issues: ValidationIssue[] = []
   const add = (path: string, message: string, warning = false) => issues.push({ path, message, warning })
   if (!intent.title.trim()) add('title', 'Give your intent a title.')
-  if (!isUuid(intent.discoveryAreaId)) add('geography', 'The local discovery identifier is invalid.')
+  if (!isUuid(intent.discoveryProjectionId)) add('geography', 'The local discovery identifier is invalid.')
   const g = intent.geography
   if (!g) add('geography', 'Choose where you are open to discovery.')
-  else if (!metadata.supportedAreaTypes.includes(g.type)) add('geography', 'This geography is not currently supported.')
+  else if (!metadata.supportedGeographyTypes.includes(g.type)) add('geography', 'This geography is not currently supported.')
   else if (g.type === 'RADIUS') numberErrors(g.radiusMeters, { min: metadata.minRadiusMeters, max: metadata.maxRadiusMeters }).forEach((e) => add('geography', e))
   else if (!isUuid(g.administrativeAreaId) || !g.displayName || !['CITY', 'DISTRICT'].includes(g.administrativeAreaType)) add('geography', 'Select a valid city or district again.')
   if (!template || template.key !== intent.templateKey || !Array.isArray(template.fields)) {
@@ -88,6 +88,7 @@ export function validateIntent(intent: Intent, template: Template | undefined, m
   if (fields.size !== template.fields.length) add('template', 'The template contains missing or duplicate field keys.')
   for (const [role, values, prefix] of [['CLAIM', intent.claims, 'claims'], ['ENCOUNTER_OPTION', intent.encounterOptions, 'encounterOptions']] as const) {
     for (const [key, value] of Object.entries(values)) {
+      if (value === undefined) continue
       const field = fields.get(key)
       if (!field?.roles?.includes(role)) add(`${prefix}.${key}`, 'This field or its role is no longer available. Remove it explicitly to continue.')
       else validateValue(value, fieldEditorConstraints(field)).forEach((e) => add(`${prefix}.${key}`, e))

@@ -7,7 +7,7 @@ type Schema = components['schemas']
 
 async function mockLocationApi(context: BrowserContext, clientNumber: number) {
   const presence = fixturePresence(clientNumber)
-  const state = { creates: 0, fixes: [] as Schema['FixRequest'][], areas: [] as Schema['AreaRequest'][], accepts: 0, deleted: false }
+  const state = { creates: 0, fixes: [] as Schema['FixRequest'][], projections: [] as Schema['DiscoveryProjectionRequest'][], accepts: 0, deleted: false }
   await context.route('http://localhost:8080/**', async (route) => {
     const request = route.request()
     const path = new URL(request.url()).pathname
@@ -29,12 +29,12 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
       state.fixes.push(fix)
       return json({ status: 'ACCEPTED', sequence: fix.sequence, expiresAt: presence.expiresAt } satisfies Schema['FixResponse'])
     }
-    if (path.endsWith('/discovery-areas')) {
-      state.areas = (request.postDataJSON() as Schema['AreasRequest']).areas
+    if (path.endsWith('/discovery-projections')) {
+      state.projections = (request.postDataJSON() as Schema['DiscoveryProjectionsRequest']).projections
       return json({ status: 'RECORDED' } satisfies Schema['RecordedResponse'])
     }
-    if (path.endsWith('/inbox')) return json({ pollAfterSeconds: 1, offers: state.areas.length ? [{
-      offerHandle: '00000000-0000-4000-8000-999999999999', localDiscoveryAreaIds: state.areas.map((area) => area.id),
+    if (path.endsWith('/inbox')) return json({ pollAfterSeconds: 1, offers: state.projections.length ? [{
+      offerHandle: '00000000-0000-4000-8000-999999999999', localDiscoveryProjectionIds: state.projections.map((area) => area.id),
       status: state.accepts ? 'ACCEPTED' : 'PENDING', expiresAt: new Date(Date.now() + metadata.offerTtlSeconds * 1000).toISOString(),
     }] : [] } satisfies Schema['InboxResponse'])
     if (path.endsWith('/accept')) { state.accepts++; return json({ status: 'RECORDED' } satisfies Schema['RecordedResponse']) }
@@ -55,7 +55,7 @@ test('local Intent creation, dual activation, private offers and independent bro
     for (const page of [alicePage, bobPage]) {
       await page.goto('http://localhost:5173')
       await page.getByRole('button', { name: 'Enable location' }).click()
-      await expect(page.getByText('Location active', { exact: true })).toBeVisible()
+      await expect.poll(() => page === alicePage ? aliceState.fixes.length : bobState.fixes.length).toBeGreaterThan(0)
       await page.getByRole('button', { name: 'Your intents' }).click()
       for (const name of ['Dive Buddy', 'Coffee & Conversation']) {
         await page.getByRole('button', { name: 'Create intent' }).click()
@@ -74,22 +74,22 @@ test('local Intent creation, dual activation, private offers and independent bro
       }
       await page.getByRole('button', { name: 'Discovery', exact: true }).click()
       for (const name of ['Dive Buddy', 'Coffee & Conversation']) {
-        await page.getByRole('switch', { name: `Activate ${name}` }).click()
-        await expect(page.getByRole('switch', { name: `Activate ${name}` })).toBeChecked()
+        await page.getByRole('switch', { name: `Turn ${name} on` }).click()
+        await expect(page.getByRole('switch', { name: `Turn ${name} off` })).toBeChecked()
       }
-      await expect(page.getByText('You’re discoverable.')).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'DISCOVERABLE', exact: true })).toBeVisible()
       await expect(page.getByText('Through your local intents:')).toBeVisible()
-      await expect(page.getByRole('listitem').filter({ hasText: 'Dive Buddy' })).toBeVisible()
-      await expect(page.getByRole('listitem').filter({ hasText: 'Coffee & Conversation' })).toBeVisible()
+      await expect(page.getByRole('listitem').filter({ hasText: 'Dive Buddy' }).last()).toBeVisible()
+      await expect(page.getByRole('listitem').filter({ hasText: 'Coffee & Conversation' }).last()).toBeVisible()
       await expect(page.locator('body')).not.toContainText(/test-secret|48\.148|17\.107|People near you/)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     }
     expect(aliceState.creates).toBe(1)
     expect(bobState.creates).toBe(1)
-    expect(aliceState.areas).toHaveLength(2)
-    expect(aliceState.areas[0].id).not.toBe(bobState.areas[0].id)
-    expect(Object.keys(aliceState.areas[0]).sort()).toEqual(['id', 'radiusMeters', 'type'])
-    const ownIds = aliceState.areas.map((area) => area.id).sort()
+    expect(aliceState.projections).toHaveLength(2)
+    expect(aliceState.projections[0].id).not.toBe(bobState.projections[0].id)
+    expect(Object.keys(aliceState.projections[0]).sort()).toEqual(['claims', 'geography', 'id', 'requirements'])
+    const ownIds = aliceState.projections.map((area) => area.id).sort()
     await alicePage.screenshot({ path: 'test-results/alice-intents.png', fullPage: true })
     await bobPage.screenshot({ path: 'test-results/bob-mobile-intents.png', fullPage: true })
     await alicePage.getByRole('button', { name: 'Continue' }).click()
@@ -97,10 +97,10 @@ test('local Intent creation, dual activation, private offers and independent bro
     expect(aliceState.accepts).toBe(1)
     expect(bobState.accepts).toBe(0)
     await alicePage.reload()
-    await alicePage.getByRole('button', { name: 'Enable location' }).click()
-    await expect(alicePage.getByText('Location active', { exact: true })).toBeVisible({ timeout: 10_000 })
+    await alicePage.getByRole('button', { name: 'Update location' }).click()
+    await expect(alicePage.getByRole('heading', { name: 'DISCOVERABLE', exact: true })).toBeVisible({ timeout: 10_000 })
     expect(aliceState.creates).toBe(1)
-    expect(aliceState.areas.map((area) => area.id).sort()).toEqual(ownIds)
+    expect(aliceState.projections.map((area) => area.id).sort()).toEqual(ownIds)
     expect(aliceState.fixes.at(-1)!.sequence).toBeGreaterThan(aliceState.fixes[0].sequence)
     await alicePage.getByRole('button', { name: 'Stop discovery' }).click()
     await expect(alicePage.getByRole('button', { name: 'Start discovery' })).toBeVisible()

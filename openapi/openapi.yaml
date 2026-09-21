@@ -33,11 +33,13 @@ paths:
                 $ref: "#/components/schemas/FixResponse"
       security:
       - presenceToken: []
-  /v1/presences/{presenceId}/discovery-areas:
+  /v1/presences/{presenceId}/discovery-projections:
     put:
       tags:
       - location-controller
-      operationId: replaceDiscoveryAreas
+      summary: Replace all discovery projections; only mutual geography and hard-filter
+        PASS produce offers
+      operationId: replaceDiscoveryProjections
       parameters:
       - name: presenceId
         in: path
@@ -49,7 +51,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AreasRequest"
+              $ref: "#/components/schemas/DiscoveryProjectionsRequest"
         required: true
       responses:
         "200":
@@ -304,12 +306,83 @@ components:
         expiresAt:
           type: string
           format: date-time
-    AreaRequest:
+    BooleanValue:
       type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: boolean
+        type:
+          type: string
+          enum:
+          - BOOLEAN
+      required:
+      - type
+      - value
+    CodeValue:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: string
+        type:
+          type: string
+          enum:
+          - CODE
+      required:
+      - type
+      - value
+    DiscoveryProjectionRequest:
+      type: object
+      additionalProperties: false
       properties:
         id:
           type: string
           format: uuid
+        geography:
+          $ref: "#/components/schemas/GeographyRequest"
+        claims:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/DiscoveryValue"
+        requirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/HardRequirementRequest"
+      required:
+      - geography
+      - id
+    DiscoveryProjectionsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        projections:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiscoveryProjectionRequest"
+      required:
+      - projections
+    DiscoveryValue:
+      discriminator:
+        propertyName: type
+        mapping:
+          BOOLEAN: "#/components/schemas/BooleanValue"
+          NUMBER: "#/components/schemas/NumberValue"
+          CODE: "#/components/schemas/CodeValue"
+          TEXT: "#/components/schemas/TextValue"
+          SET: "#/components/schemas/SetValue"
+          RANGE: "#/components/schemas/RangeValue"
+      oneOf:
+      - $ref: "#/components/schemas/BooleanValue"
+      - $ref: "#/components/schemas/NumberValue"
+      - $ref: "#/components/schemas/CodeValue"
+      - $ref: "#/components/schemas/TextValue"
+      - $ref: "#/components/schemas/SetValue"
+      - $ref: "#/components/schemas/RangeValue"
+    GeographyRequest:
+      type: object
+      additionalProperties: false
+      properties:
         type:
           type: string
           enum:
@@ -322,17 +395,111 @@ components:
           type: string
           format: uuid
       required:
-      - id
       - type
-    AreasRequest:
+    HardRequirementRequest:
       type: object
+      additionalProperties: false
       properties:
-        areas:
+        field:
+          type: string
+        operator:
+          type: string
+          enum:
+          - EQ
+          - NEQ
+          - GT
+          - GTE
+          - LT
+          - LTE
+          - IN
+          - NOT_IN
+          - INTERSECTS
+          - CONTAINS_ALL
+          - RANGE_INTERSECTS
+        value:
+          $ref: "#/components/schemas/DiscoveryValue"
+      required:
+      - field
+      - operator
+      - value
+    NumberValue:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: number
+        type:
+          type: string
+          enum:
+          - NUMBER
+      required:
+      - type
+      - value
+    RangeValue:
+      type: object
+      additionalProperties: false
+      properties:
+        lower:
+          type: number
+        upper:
+          type: number
+        type:
+          type: string
+          enum:
+          - RANGE
+      required:
+      - lower
+      - type
+      - upper
+    ScalarValue:
+      discriminator:
+        propertyName: type
+        mapping:
+          BOOLEAN: "#/components/schemas/BooleanValue"
+          NUMBER: "#/components/schemas/NumberValue"
+          CODE: "#/components/schemas/CodeValue"
+          TEXT: "#/components/schemas/TextValue"
+      oneOf:
+      - $ref: "#/components/schemas/BooleanValue"
+      - $ref: "#/components/schemas/NumberValue"
+      - $ref: "#/components/schemas/CodeValue"
+      - $ref: "#/components/schemas/TextValue"
+    SetValue:
+      type: object
+      additionalProperties: false
+      properties:
+        valueType:
+          type: string
+          enum:
+          - BOOLEAN
+          - NUMBER
+          - CODE
+          - TEXT
+        values:
           type: array
           items:
-            $ref: "#/components/schemas/AreaRequest"
+            $ref: "#/components/schemas/ScalarValue"
+        type:
+          type: string
+          enum:
+          - SET
       required:
-      - areas
+      - type
+      - valueType
+      - values
+    TextValue:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: string
+        type:
+          type: string
+          enum:
+          - TEXT
+      required:
+      - type
+      - value
     RecordedResponse:
       type: object
       properties:
@@ -375,7 +542,7 @@ components:
         offerHandle:
           type: string
           format: uuid
-        localDiscoveryAreaIds:
+        localDiscoveryProjectionIds:
           type: array
           items:
             type: string
@@ -637,10 +804,10 @@ components:
         offerTtlSeconds:
           type: integer
           format: int64
-        maxDiscoveryAreas:
+        maxDiscoveryProjections:
           type: integer
           format: int32
-        supportedAreaTypes:
+        supportedGeographyTypes:
           type: array
           items:
             type: string
@@ -660,6 +827,21 @@ components:
         futureToleranceSeconds:
           type: integer
           format: int64
+        maxClaimsPerProjection:
+          type: integer
+          format: int32
+        maxRequirementsPerProjection:
+          type: integer
+          format: int32
+        maxSetItems:
+          type: integer
+          format: int32
+        maxTextLength:
+          type: integer
+          format: int32
+        maxProjectionRequestBytes:
+          type: integer
+          format: int32
   securitySchemes:
     presenceToken:
       type: apiKey

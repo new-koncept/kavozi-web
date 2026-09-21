@@ -2,10 +2,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { http, HttpResponse } from 'msw'
 import { ApiError, locationClient, type Schema } from '../../api/locationClient'
 import { apiState, base, metadata, position, resetApiState, server } from '../../test/server'
-import { db, discoveryAreaRepository, presenceRepository } from '../persistence/db'
+import { db, presenceRepository } from '../persistence/db'
 import { presenceService } from './presenceService'
 import { fixProblem, submitLocation } from './locationService'
-import { replaceDiscoveryAreas, toTransportAreas } from './discoveryAreaService'
 import { loadMetadata } from './metadata'
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
@@ -13,7 +12,7 @@ afterAll(() => server.close())
 beforeEach(resetApiState)
 afterEach(async () => {
   vi.restoreAllMocks(); server.resetHandlers()
-  await db.presences.clear(); await db.configurations.clear(); await db.preferences.clear()
+  await db.presences.clear(); await db.preferences.clear()
 })
 
 describe('contract and application services', () => {
@@ -24,11 +23,10 @@ describe('contract and application services', () => {
   })
   it('replaces expired Presence and resets counters', async () => {
     const first = (await presenceService.ensure())!
-    await presenceRepository.update(first.id, { expiresAt: '2000-01-01T00:00:00Z', sequence: 20, revision: 30 })
+    await presenceRepository.update(first.id, { expiresAt: '2000-01-01T00:00:00Z', sequence: 20 })
     const next = await presenceService.ensure()
     expect(next?.id).not.toBe(first.id)
     expect(next?.sequence).toBe(0)
-    expect(next?.revision).toBe(0)
   })
   it('does not automatically retry an ambiguous creation failure on reload', async () => {
     let calls = 0
@@ -62,23 +60,11 @@ describe('contract and application services', () => {
     await submitLocation(presence.id, position(), metadata)
     expect(apiState.fixes[0].sequence).toBe(2)
   })
-  it('retains desired areas after failure and sends the whole set with a higher revision on retry', async () => {
-    const presence = (await presenceService.ensure())!
-    const areas = [{ id: crypto.randomUUID(), kind: 'radius' as const, meters: 5000 }]
-    server.use(http.put(`${base}/v1/presences/:presenceId/discovery-areas`, () => new HttpResponse(null, { status: 409 }), { once: true }))
-    await expect(replaceDiscoveryAreas(presence.id, areas, metadata)).rejects.toMatchObject({ status: 409 })
-    expect(await discoveryAreaRepository.get()).toEqual(areas)
-    expect(await presenceRepository.get()).toMatchObject({ revision: 1, syncedRevision: 0 })
-    await replaceDiscoveryAreas(presence.id, areas, metadata)
-    expect(apiState.configurations[0]).toEqual({ areas: toTransportAreas(areas) })
-  })
   it('validates accuracy, freshness, future tolerance and radius using metadata', async () => {
     expect(fixProblem(position({ accuracy: metadata.maxAccuracyMeters + 1 }), metadata)).toBe('poor')
     expect(fixProblem(position({}, Date.now() - 121_000), metadata)).toBe('stale')
     expect(fixProblem(position({}, Date.now() + 11_000), metadata)).toBe('stale')
     expect(fixProblem(position({ latitude: 91 }), metadata)).toBe('unavailable')
-    const presence = (await presenceService.ensure())!
-    await expect(replaceDiscoveryAreas(presence.id, [{ id: crypto.randomUUID(), kind: 'radius', meters: 1 }], metadata)).rejects.toMatchObject({ status: 400 })
     expect(apiState.configurations).toHaveLength(0)
   })
   it('keeps credentials when deletion fails so the user can retry', async () => {

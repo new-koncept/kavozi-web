@@ -12,7 +12,7 @@ it('honors the inbox response interval and does not refetch aggressively when re
   vi.useFakeTimers()
   const request = vi.spyOn(locationClient, 'getInbox').mockResolvedValue({ pollAfterSeconds: 60, offers: [] })
   const presence: LocalPresence = { key: 'current', id: 'own', token: 'private', expiresAt: '2099-01-01T00:00:00Z',
-    locationInterval: 5, inboxInterval: 30, sequence: 0, acceptedSequence: 0, revision: 1, syncedRevision: 1 }
+    locationInterval: 5, inboxInterval: 30, sequence: 0, acceptedSequence: 0 }
   const client = createQueryClient()
   const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>{children}</QueryClientProvider>
   const hook = renderHook(({ enabled }) => useInbox(presence, enabled), { wrapper, initialProps: { enabled: true } })

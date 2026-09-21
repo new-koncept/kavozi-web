@@ -1,3 +1,4 @@
+import { ProjectionError } from '../application/intentDiscoveryProjection'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Alert, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material'
@@ -19,7 +20,7 @@ export function IntentEditor({ initial, template, metadata, onDone }: {
   const [submitted, setSubmitted] = useState(false)
   const validation = validateIntent(intent, template, metadata)
   const fields = template.fields ?? []
-  const save = useMutation({ mutationFn: () => intentService.save(intent, metadata), onSuccess: onDone })
+  const save = useMutation({ mutationKey: ['intent-write'], mutationFn: () => intentService.save(intent, metadata), onSuccess: onDone })
   const changeValue = (section: 'claims' | 'encounterOptions', key: string, value?: IntentFieldValue) => {
     const values = { ...intent[section] }
     if (value === undefined) delete values[key]; else values[key] = value
@@ -54,7 +55,7 @@ export function IntentEditor({ initial, template, metadata, onDone }: {
     {valueSection('CLAIM', 'claims', 'About me')}
     {(fields.some((field) => field.roles?.includes('REQUIREMENT')) || intent.requirements.length > 0) && <Card><CardContent><Stack spacing={2}>
       <Typography variant="h5">Must match</Typography>
-      <Typography variant="body2" color="text.secondary">Hard requirements describe what must be compatible before future agent reasoning. Discovery currently checks geography only; these requirements are not enforced yet.</Typography>
+      <Typography variant="body2" color="text.secondary">Discovery checks location and hard requirements in both directions before an anonymous offer. Preferences and agent reasoning are not evaluated.</Typography>
       <PredicateEditor fields={fields.filter((field) => field.roles?.includes('REQUIREMENT'))} values={intent.requirements} label="Requirement" onChange={(requirements) => setIntent({ ...intent, requirements })} />
     </Stack></CardContent></Card>}
     {(fields.some((field) => field.roles?.includes('PREFERENCE')) || intent.preferences.length > 0) && <Card><CardContent><Stack spacing={2}>
@@ -71,7 +72,7 @@ export function IntentEditor({ initial, template, metadata, onDone }: {
     </Stack></CardContent></Card> : intent.agentInstruction && <Alert severity="warning" action={<Button onClick={() => setIntent({ ...intent, agentInstruction: undefined })}>Remove instruction</Button>}>
       The current template no longer supports agent instructions. Saved instruction: {intent.agentInstruction}</Alert>}
     {(submitted || initial.updatedAt !== initial.createdAt) && validation.issues.map((issue, index) => <Alert severity={issue.warning ? 'info' : 'warning'} key={index}>{issueLabel(issue.path)}: {issue.message}</Alert>)}
-    {save.isError && <Alert severity="error">{save.error instanceof IntentError ? save.error.message : errorMessage(save.error)}</Alert>}
+    {save.isError && <Alert severity="error">{(save.error instanceof IntentError || save.error instanceof ProjectionError) ? save.error.message : errorMessage(save.error)}</Alert>}
     <Stack direction="row" spacing={2}><Button type="submit" variant="contained" disabled={save.isPending}>Save intent</Button><Button onClick={onDone} disabled={save.isPending}>Cancel</Button></Stack>
   </Stack>
 }

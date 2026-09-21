@@ -15,7 +15,6 @@ async function create(): Promise<LocalPresence> {
     key: 'current', id: response.presenceId, token: response.presenceToken,
     expiresAt: response.expiresAt, locationInterval: response.locationUpdateAfterSeconds!,
     inboxInterval: response.inboxPollAfterSeconds!, sequence: 0, acceptedSequence: 0,
-    revision: 0, syncedRevision: 0,
   }
   await db.transaction('rw', db.presences, db.preferences, async () => {
     await presenceRepository.save(presence)

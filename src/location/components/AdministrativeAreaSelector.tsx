@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Alert, Autocomplete, Box, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { locationClient, type Schema } from '../../api/locationClient'
-import type { LocalDiscoveryArea } from '../model/local'
+import type { IntentGeography } from '../../intent/model/Intent'
 
 export function AdministrativeAreaSelector({ onAdd, disabled }: {
-  onAdd: (area: LocalDiscoveryArea) => void; disabled: boolean
+  onAdd: (area: Extract<IntentGeography, { type: 'ADMINISTRATIVE_AREA' }>) => void; disabled: boolean
 }) {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
@@ -32,7 +32,7 @@ export function AdministrativeAreaSelector({ onAdd, disabled }: {
       noOptionsText={query ? 'No administrative areas found' : 'Type a city or district name'}
       onChange={(_, area) => {
         if (area?.id && area.name && area.type) {
-          onAdd({ id: crypto.randomUUID(), kind: 'administrative', administrativeId: area.id, name: area.name, category: area.type })
+          onAdd({ type: 'ADMINISTRATIVE_AREA', administrativeAreaId: area.id, displayName: area.name, administrativeAreaType: area.type })
           setInput('')
         }
       }}

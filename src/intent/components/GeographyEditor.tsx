@@ -12,15 +12,13 @@ export function GeographyEditor({ value, onChange, metadata }: {
       ? { type: 'RADIUS', radiusMeters: NaN } : event.target.value === 'ADMINISTRATIVE_AREA'
         ? { type: 'ADMINISTRATIVE_AREA', administrativeAreaId: '', displayName: '', administrativeAreaType: 'CITY' } : undefined)}>
       <MenuItem value="">Choose a geography</MenuItem>
-      {metadata.supportedAreaTypes.includes('RADIUS') && <MenuItem value="RADIUS">Around me</MenuItem>}
-      {metadata.supportedAreaTypes.includes('ADMINISTRATIVE_AREA') && <MenuItem value="ADMINISTRATIVE_AREA">City or district</MenuItem>}
+      {metadata.supportedGeographyTypes.includes('RADIUS') && <MenuItem value="RADIUS">Around me</MenuItem>}
+      {metadata.supportedGeographyTypes.includes('ADMINISTRATIVE_AREA') && <MenuItem value="ADMINISTRATIVE_AREA">City or district</MenuItem>}
     </TextField>
     {value?.type === 'RADIUS' && <RadiusInput metadata={metadata} value={value.radiusMeters} onChange={(radiusMeters) => onChange({ type: 'RADIUS', radiusMeters })} />}
     {value?.type === 'ADMINISTRATIVE_AREA' && <>
       {value.displayName && <Typography>{value.displayName}</Typography>}
-      <AdministrativeAreaSelector disabled={false} onAdd={(area) => {
-        if (area.kind === 'administrative' && (area.category === 'CITY' || area.category === 'DISTRICT')) onChange({ type: 'ADMINISTRATIVE_AREA', administrativeAreaId: area.administrativeId, displayName: area.name, administrativeAreaType: area.category })
-      }} />
+      <AdministrativeAreaSelector disabled={false} onAdd={onChange} />
     </>}
   </Stack>
 }
