@@ -4,9 +4,11 @@ import { Alert, Button, Card, CardContent, Stack, Typography } from '@mui/materi
 import { ApiError, errorMessage, locationClient, type Schema } from '../../api/locationClient'
 import type { LocalPresence } from '../model/local'
 import { intentsForOffer, type Intent } from '../../intent/model/Intent'
+import { EncounterAdmission } from '../../encounter/components/EncounterAdmission'
 
-export function OfferCard({ offer, presence, intents }: {
+export function OfferCard({ offer, presence, intents, onEncounter }: {
   offer: Schema['OfferResponse']; presence: LocalPresence; intents: Intent[]
+  onEncounter?: (id: string, fingerprint: string) => void
 }) {
   const [decision, setDecision] = useState<'accepted' | 'declined' | null>(null)
   const [expired, setExpired] = useState(() => !offer.expiresAt || Date.parse(offer.expiresAt) <= Date.now())
@@ -32,7 +34,8 @@ export function OfferCard({ offer, presence, intents }: {
   return <Card sx={{ borderColor: 'primary.main' }}><CardContent sx={{ p: { xs: 3, sm: 4 } }}><Stack spacing={2}>
     <Typography variant="overline">A quiet possibility</Typography>
     <Typography variant="h4">{accepted ? 'Interest recorded.' : 'Something matched'}</Typography>
-    {accepted ? <Typography>Waiting privately for the next step.</Typography> : <>
+    {accepted ? <><Typography>Waiting privately for the next step.</Typography>
+      {onEncounter && <EncounterAdmission presence={presence} offerHandle={offer.offerHandle} expiresAt={offer.expiresAt} onOpen={onEncounter} />}</> : <>
       <Typography>Location and your requirements align.</Typography>
       {ownIntents.length > 0 && <><Typography variant="body2" color="text.secondary">Through your local intents:</Typography>
         <Stack component="ul" spacing={1} sx={{ mt: 0, pl: 3 }}>{ownIntents.map((intent) => <Typography component="li" key={intent.id}>{intent.title}</Typography>)}</Stack></>}

@@ -5,7 +5,8 @@ import { withPresenceLock } from './browserLock'
 
 async function create(): Promise<LocalPresence> {
   // If POST has an ambiguous network failure, a reload must not silently repeat it.
-  await db.preferences.put({ key: 'discovery', stopped: true })
+  const preference = await db.preferences.get('discovery')
+  await db.preferences.put({ ...preference, key: 'discovery', stopped: true })
   const response = await locationClient.createPresence()
   if (!response.presenceId || !response.presenceToken || !response.expiresAt
     || !(Date.parse(response.expiresAt) > Date.now())
@@ -18,7 +19,7 @@ async function create(): Promise<LocalPresence> {
   }
   await db.transaction('rw', db.presences, db.preferences, async () => {
     await presenceRepository.save(presence)
-    await db.preferences.put({ key: 'discovery', stopped: false })
+    await db.preferences.put({ ...preference, key: 'discovery', stopped: false })
   })
   return presence
 }
@@ -36,7 +37,8 @@ export const presenceService = {
     if (!current || current.id !== invalidId) return current ?? null
     await db.transaction('rw', db.presences, db.preferences, async () => {
       await db.presences.delete('current')
-      await db.preferences.put({ key: 'discovery', stopped: true })
+      const preference = await db.preferences.get('discovery')
+      await db.preferences.put({ ...preference, key: 'discovery', stopped: true })
     })
     return allowCreate ? create() : null
   }),
@@ -51,7 +53,7 @@ export const presenceService = {
     }
     await db.transaction('rw', db.presences, db.preferences, async () => {
       await db.presences.delete('current')
-      await db.preferences.put({ key: 'discovery', stopped: true })
+      await db.preferences.put({ key: 'discovery', stopped: true, locationEnabled: false })
     })
   }),
 }

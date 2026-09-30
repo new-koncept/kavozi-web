@@ -1,3 +1,4 @@
+import { NodeIdentityPanel } from '../identity/components/NodeIdentityPanel'
 import { ProjectionError } from '../intent/application/intentDiscoveryProjection'
 import { useState } from 'react'
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,9 +10,13 @@ import { DiscoverySession } from '../location/components/DiscoverySession'
 import { useCurrentTemplates, useIntents } from '../intent/hooks/useIntents'
 import { IntentsPage } from '../intent/pages/IntentsPage'
 import { intentService, IntentError } from '../intent/application/intentService'
+import { useNodeIdentity } from '../encounter/hooks/useEncounters'
+import { EncountersPage } from '../encounter/components/EncountersPage'
 
 export default function App() {
-  const [page, setPage] = useState<'discovery' | 'intents'>('discovery')
+  const [page, setPage] = useState<'discovery' | 'intents' | 'conversations'>('discovery')
+  const [conversation, setConversation] = useState<{ id: string; fingerprint: string }>()
+  const identity = useNodeIdentity()
   const client = useQueryClient()
   const presence = usePresence()
   const metadata = useQuery({ queryKey: ['metadata'], queryFn: loadMetadata, staleTime: 120_000, refetchInterval: 120_000 })
@@ -39,11 +44,16 @@ export default function App() {
       <Typography component="h1" sx={{ fontSize: 25, fontWeight: 600, letterSpacing: '-1px' }}>Kavozi<span style={{ color: '#a2865b' }}>.</span></Typography>
       <Chip label="Quietly, privately" size="small" variant="outlined" />
     </Stack>
-    <Stack component="nav" aria-label="Main navigation" direction="row" spacing={2} sx={{ mb: 3 }}>
+    <Stack component="nav" aria-label="Main navigation" direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap' }}>
       <Button aria-current={page === 'discovery' ? 'page' : undefined} onClick={() => setPage('discovery')}>Discovery</Button>
       <Button aria-current={page === 'intents' ? 'page' : undefined} onClick={() => setPage('intents')}>Your intents</Button>
+      <Button aria-current={page === 'conversations' ? 'page' : undefined} onClick={() => { setConversation(undefined); setPage('conversations') }}>Conversations</Button>
     </Stack>
     <Stack spacing={3}>
+      {page === 'conversations' && (identity.status === 'READY'
+        ? <EncountersPage key={`${identity.fingerprint}:${conversation?.id ?? ''}`} fingerprint={identity.fingerprint}
+          initialId={conversation?.fingerprint === identity.fingerprint ? conversation.id : undefined} intents={intents.data} />
+        : <Alert severity="info">Conversations need your registered node identity. Check Node identity below.</Alert>)}
       {page === 'intents' && presence.notice && <Alert severity="info">{presence.notice}</Alert>}
       {page === 'intents' && error && <Alert severity="warning" action={<Button onClick={() => {
         if (metadata.isError) void metadata.refetch()
@@ -61,8 +71,9 @@ export default function App() {
             if (metadata.isError) void metadata.refetch()
             if (presence.isError) void presence.refetch()
             presence.start.reset(); presence.stop.reset()
-          }} onManage={() => setPage('intents')} onChanged={onChanged} />
+          }} onManage={() => setPage('intents')} onChanged={onChanged} onEncounter={(id, fingerprint) => { setConversation({ id, fingerprint }); setPage('conversations') }} />
       </Box>
     </Stack>
+    <NodeIdentityPanel />
   </Container>
 }

@@ -31,6 +31,7 @@ afterEach(async () => {
   clients.length = 0
   await withPresenceLock(async () => undefined)
   await db.presences.clear(); await db.preferences.clear(); await db.intents.clear()
+  Object.defineProperty(navigator, 'permissions', { configurable: true, value: undefined })
   server.resetHandlers()
 })
 function mount() {
@@ -64,6 +65,27 @@ describe('anonymous Location application', () => {
     await screen.findByRole('button', { name: 'Enable location' })
     expect(apiState.creates).toBe(1)
     expect((await presenceRepository.get())?.id).toBe(stored?.id)
+  })
+  it('resumes an opted-in location watcher after reload when permission remains granted', async () => {
+    const permission = {
+      state: 'granted',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: {
+      query: vi.fn().mockResolvedValue(permission),
+    } })
+    const first = mount()
+    await discover()
+    await waitFor(async () => expect((await db.preferences.get('discovery'))?.locationEnabled).toBe(true))
+    const fixesBeforeReload = apiState.fixes.length
+    const current = (await presenceRepository.get())!
+    await presenceRepository.update(current.id, { lastLocationSentAt: Date.now() - (current.locationInterval + 1) * 1000 })
+    first.unmount()
+
+    mount()
+    await waitFor(() => expect(apiState.fixes.length).toBeGreaterThan(fixesBeforeReload))
+    expect(navigator.permissions.query).toHaveBeenCalledWith({ name: 'geolocation' })
   })
   it('submits location and complete area sets, then polls an empty inbox without invented results', async () => {
     mount()
@@ -195,6 +217,7 @@ describe('anonymous Location application', () => {
     expect(screen.getByText('Discovery is stopped on this device.')).toBeVisible()
     expect(apiState.deletes).toBe(1)
     expect(await presenceRepository.get()).toBeUndefined()
+    expect(await db.preferences.get('discovery')).toMatchObject({ stopped: true, locationEnabled: false })
     expect(navigator.geolocation.clearWatch).toHaveBeenCalled()
     view.unmount(); mount()
     await screen.findByRole('button', { name: 'Start discovery' })

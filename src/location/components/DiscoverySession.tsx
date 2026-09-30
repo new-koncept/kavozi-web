@@ -13,14 +13,40 @@ import { IntentToggleList } from '../../intent/components/IntentToggleList'
 import { intentService, IntentError } from '../../intent/application/intentService'
 import { deriveDiscoverability, type DiscoveryReadiness } from '../application/discoverability'
 import { DiscoverabilityPanel } from './DiscoverabilityPanel'
+import { discoveryPreferenceRepository } from '../persistence/db'
 
-export function DiscoverySession({ presence, metadata, intents, synchronized, syncError, syncing, onRetry, stopping, onStop, onManage, onChanged, loading, error, onStart, onRecover }: {
+export function DiscoverySession({ presence, metadata, intents, synchronized, syncError, syncing, onRetry, stopping, onStop, onManage, onChanged, loading, error, onStart, onRecover, onEncounter }: {
   presence?: LocalPresence | null; metadata?: LocationMetadata; intents: Intent[]; synchronized: boolean
   syncError?: string; syncing: boolean; onRetry: () => Promise<boolean>; stopping: boolean; onStop: () => void
   onManage: () => void; onChanged: () => void; loading: boolean; error: boolean; onStart: () => void; onRecover: () => void
+  onEncounter?: (id: string, fingerprint: string) => void
 }) {
   const [locationPresence, setLocationPresence] = useState<string>()
   const [watchAttempt, setWatchAttempt] = useState(0)
+  useEffect(() => {
+    const id = presence?.id
+    if (!id || !navigator.permissions?.query) return
+    let disposed = false
+    let permission: PermissionStatus | undefined
+    const enableWhenGranted = () => {
+      if (!disposed && permission?.state === 'granted') setLocationPresence(id)
+    }
+    void discoveryPreferenceRepository.get().then(async (preference) => {
+      if (disposed || !preference?.locationEnabled) return
+      try {
+        permission = await navigator.permissions.query({ name: 'geolocation' })
+        if (disposed) return
+        enableWhenGranted()
+        permission.addEventListener('change', enableWhenGranted)
+      } catch {
+        // Permissions API support varies; explicit Update location remains available.
+      }
+    })
+    return () => {
+      disposed = true
+      permission?.removeEventListener('change', enableWhenGranted)
+    }
+  }, [presence?.id])
   const location = useGeolocation(presence?.id, Boolean(presence && locationPresence === presence.id && !stopping), metadata, presence?.locationInterval ?? 30, watchAttempt)
   const [now, setNow] = useState(Date.now)
   useEffect(() => {
@@ -49,7 +75,11 @@ export function DiscoverySession({ presence, metadata, intents, synchronized, sy
   const canPoll = deriveDiscoverability(readiness).canPoll
   const inbox = useInbox(presence, canPoll)
   const state = deriveDiscoverability({ ...readiness, inbox: !online || inbox.fetchStatus === 'paused' ? 'paused' : inbox.isError ? 'failed' : inbox.isSuccess ? 'ready' : 'pending' })
-  const updateLocation = () => { setLocationPresence(presence?.id); setWatchAttempt((value) => value + 1) }
+  const updateLocation = () => {
+    void discoveryPreferenceRepository.setLocationEnabled(true).catch(() => undefined)
+    setLocationPresence(presence?.id)
+    setWatchAttempt((value) => value + 1)
+  }
   const act = () => {
     switch (state.action) {
       case 'location': updateLocation(); break
@@ -70,7 +100,7 @@ export function DiscoverySession({ presence, metadata, intents, synchronized, sy
       onToggle={(id, active) => { if (!busy.current) { busy.current = true; change.mutate({ id, active }) } }} />
     <Button variant="outlined" onClick={onManage}>Manage intents</Button>
     {presence && location.status === 'idle' && state.action !== 'location' && <Button onClick={updateLocation}>Enable location</Button>}
-    {!stopping && presence && (inbox.data?.offers ?? []).map((offer) => <OfferCard key={offer.offerHandle} offer={offer} presence={presence} intents={intents} />)}
+    {!stopping && presence && (inbox.data?.offers ?? []).map((offer) => <OfferCard key={offer.offerHandle} offer={offer} presence={presence} intents={intents} onEncounter={onEncounter} />)}
     {presence && <><Button disabled={stopping} onClick={onStop} sx={{ alignSelf: 'center' }}>{stopping ? 'Stopping…' : 'Stop discovery'}</Button>
       <Typography variant="caption" sx={{ textAlign: 'center' }} color="text.secondary">Stopping deletes this anonymous presence. Your intents stay on this device.</Typography></>}
     {import.meta.env.DEV && presence && <Box component="details" sx={{ fontSize: 12, color: 'text.secondary', borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>

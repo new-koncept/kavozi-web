@@ -14,6 +14,8 @@ async function mockLocationApi(context: BrowserContext, clientNumber: number) {
     const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS' }
     const json = (body: unknown, status = 200) => route.fulfill({ status, headers, json: body })
     if (request.method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+    // Node identity is independent: discovery continues even if registration is unavailable.
+    if (path === '/v1/node-registration-challenges' || path === '/v1/nodes') return json({}, 503)
     if (path === '/v1/intent-templates') return json([diveTemplate, coffeeTemplate].map(({ key, name, description }) => ({ key, name, description })))
     if (path.startsWith('/v1/intent-templates/')) return json(path.endsWith('/dive') ? diveTemplate : coffeeTemplate)
     if (path === '/.well-known/kavozi-location') return json(metadata)
@@ -97,11 +99,12 @@ test('local Intent creation, dual activation, private offers and independent bro
     expect(aliceState.accepts).toBe(1)
     expect(bobState.accepts).toBe(0)
     await alicePage.reload()
-    await alicePage.getByRole('button', { name: 'Update location' }).click()
+    // Reload can retain a fresh accepted fix while acquisition still needs enabling.
+    await alicePage.getByRole('button', { name: /^(Enable|Update) location$/ }).click()
     await expect(alicePage.getByRole('heading', { name: 'DISCOVERABLE', exact: true })).toBeVisible({ timeout: 10_000 })
     expect(aliceState.creates).toBe(1)
     expect(aliceState.projections.map((area) => area.id).sort()).toEqual(ownIds)
-    expect(aliceState.fixes.at(-1)!.sequence).toBeGreaterThan(aliceState.fixes[0].sequence)
+    await expect.poll(() => aliceState.fixes.at(-1)!.sequence, { timeout: 10_000 }).toBeGreaterThan(aliceState.fixes[0].sequence)
     await alicePage.getByRole('button', { name: 'Stop discovery' }).click()
     await expect(alicePage.getByRole('button', { name: 'Start discovery' })).toBeVisible()
     expect(aliceState.deleted).toBe(true)

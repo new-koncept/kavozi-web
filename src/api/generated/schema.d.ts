@@ -54,6 +54,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/presences/{presenceId}/offers/{offerHandle}/encounter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["claimEncounterFromOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/presences/{presenceId}/offers/{offerHandle}/decline": {
         parameters: {
             query?: never;
@@ -80,6 +96,94 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["acceptLocationOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register an Ed25519 node after private-key proof
+         * @description Sign these US-ASCII bytes with Ed25519, including the final newline: `KAVOZI-NODE-REGISTRATION-V1\nchallenge-id:<lowercase UUID>\nchallenge:<unpadded Base64url challenge>\npublic-key-fingerprint:<sha256:unpadded Base64url SHA-256 of canonical SPKI>\naudience:kavozi-api\n`. The challenge is single-use. The public key is immutable; losing its private key requires a new identity in v1. Registration does not authorize a Presence.
+         */
+        post: operations["registerNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/node-registration-challenges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue a single-use Ed25519 registration challenge
+         * @description Submit an unpadded Base64url canonical DER Ed25519 SubjectPublicKeyInfo. The returned random challenge is bound to SHA-256 of the canonical SPKI and expires after the configured lifetime (120 seconds by default). Registration does not create or authorize a Presence.
+         */
+        post: operations["issueNodeRegistrationChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["joinEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sendEncounterMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createEncounterInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -152,6 +256,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/encounters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listNodeEncounters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEncounter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEncounterEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/.well-known/kavozi-location": {
         parameters: {
             query?: never;
@@ -160,6 +312,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getLocationMetadata"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/.well-known/kavozi-encounter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discover messenger limits and the node-signature profile */
+        get: operations["getEncounterMetadata"];
         put?: never;
         post?: never;
         delete?: never;
@@ -179,6 +348,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["deletePresence"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/participants/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["leaveEncounter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/encounters/{encounterId}/invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeEncounterInvitation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -307,6 +508,158 @@ export interface components {
             /** Format: int32 */
             inboxPollAfterSeconds?: number;
         };
+        EncounterResponse: {
+            /** Format: uuid */
+            encounterId?: string;
+            /** @enum {string} */
+            state?: "WAITING_FOR_MEMBERS" | "OPEN" | "CLOSED" | "EXPIRED";
+            /** Format: int64 */
+            membershipVersion?: number;
+            /** Format: int64 */
+            expectedInitialParticipants?: number;
+            /** Format: int64 */
+            activeParticipants?: number;
+            /** Format: int32 */
+            maxParticipants?: number;
+            /** @enum {string} */
+            admissionPolicy?: "MEMBERS_MAY_INVITE";
+            participants?: components["schemas"]["ParticipantResponse"][];
+            self?: components["schemas"]["SelfMembershipResponse"];
+            mySource?: components["schemas"]["LocalSourceResponse"];
+            /** Format: int64 */
+            lastSequence?: number;
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            admissionDeadline?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: date-time */
+            endedAt?: string;
+            /** Format: date-time */
+            purgeAt?: string;
+        };
+        LocalSourceResponse: {
+            /** Format: uuid */
+            offerHandle?: string;
+            localDiscoveryProjectionIds?: string[];
+        };
+        ParticipantResponse: {
+            /** Format: uuid */
+            participantId?: string;
+            /** @enum {string} */
+            state?: "ACTIVE" | "LEFT";
+            /** Format: date-time */
+            joinedAt?: string;
+            /** Format: date-time */
+            leftAt?: string;
+        };
+        SelfMembershipResponse: {
+            /** Format: uuid */
+            participantId?: string;
+            /** Format: int64 */
+            firstVisibleSequence?: number;
+        };
+        RegistrationRequest: {
+            /** Format: uuid */
+            challengeId: string;
+            /** @description Unpadded Base64url 32-byte challenge */
+            challenge: string;
+            /** @description Same unpadded Base64url canonical Ed25519 DER SubjectPublicKeyInfo */
+            publicKey: string;
+            /** @description Unpadded Base64url Ed25519 signature of the canonical registration statement */
+            signature: string;
+        };
+        NodeResponse: {
+            /** Format: uuid */
+            nodeId?: string;
+            /** @description SHA-256 of canonical DER SubjectPublicKeyInfo */
+            fingerprint?: string;
+            /** @enum {string} */
+            keyAlgorithm?: "Ed25519";
+            /** @enum {string} */
+            status?: "ACTIVE" | "REVOKED";
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        ChallengeRequest: {
+            /** @description Unpadded Base64url canonical Ed25519 DER SubjectPublicKeyInfo */
+            publicKey: string;
+        };
+        ChallengeResponse: {
+            /** Format: uuid */
+            challengeId?: string;
+            /** @description Unpadded Base64url 32-byte single-use challenge */
+            challenge?: string;
+            /** @description SHA-256 of canonical DER SubjectPublicKeyInfo */
+            fingerprint?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        JoinEncounterRequest: {
+            /** Format: uuid */
+            invitationId: string;
+            invitationToken: string;
+            /** Format: int64 */
+            membershipVersion: number;
+        };
+        SendEncounterMessageRequest: {
+            /** Format: uuid */
+            messageId: string;
+            /** Format: int64 */
+            membershipVersion: number;
+            protocol: string;
+            contentType: string;
+            payload: string;
+        };
+        MessageEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "MESSAGE";
+            /** Format: int64 */
+            sequence?: number;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** Format: int64 */
+            membershipVersion?: number;
+            message?: components["schemas"]["MessageResponse"];
+        };
+        MessageResponse: {
+            /** Format: uuid */
+            messageId?: string;
+            /** Format: uuid */
+            senderParticipantId?: string;
+            protocol?: string;
+            contentType?: string;
+            payload?: string;
+        };
+        CreateEncounterInvitationRequest: {
+            /** Format: uuid */
+            invitationId: string;
+            invitationTokenHash: string;
+            /** Format: int64 */
+            membershipVersion: number;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        EncounterInvitationResponse: {
+            /** Format: uuid */
+            encounterId?: string;
+            /** Format: uuid */
+            invitationId?: string;
+            /** Format: uuid */
+            inviterParticipantId?: string;
+            /** Format: int64 */
+            membershipVersion?: number;
+            /** @enum {string} */
+            status?: "PENDING" | "CONSUMED" | "REVOKED" | "EXPIRED" | "INVALIDATED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
         InboxResponse: {
             /** Format: int32 */
             pollAfterSeconds?: number;
@@ -428,6 +781,66 @@ export interface components {
              */
             kind: "TEXT";
         };
+        EncounterListResponse: {
+            encounters?: components["schemas"]["EncounterResponse"][];
+            nextCursor?: string;
+        };
+        EncounterEvent: components["schemas"]["MessageEvent"] | components["schemas"]["ParticipantJoinedEvent"] | components["schemas"]["ParticipantLeftEvent"] | components["schemas"]["LifecycleEvent"];
+        EncounterEventPage: {
+            events?: components["schemas"]["EncounterEvent"][];
+            /** Format: int64 */
+            nextAfterSequence?: number;
+            hasMore?: boolean;
+            /** Format: int32 */
+            pollAfterSeconds?: number;
+            /** @enum {string} */
+            state?: "WAITING_FOR_MEMBERS" | "OPEN" | "CLOSED" | "EXPIRED";
+            /** Format: int64 */
+            membershipVersion?: number;
+        };
+        LifecycleEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "ENCOUNTER_OPENED" | "ENCOUNTER_CLOSED" | "ENCOUNTER_EXPIRED";
+            /** Format: int64 */
+            sequence?: number;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** Format: int64 */
+            membershipVersion?: number;
+            reason?: string;
+        };
+        ParticipantJoinedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "PARTICIPANT_JOINED";
+            /** Format: int64 */
+            sequence?: number;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** Format: int64 */
+            membershipVersion?: number;
+            participant?: components["schemas"]["ParticipantResponse"];
+        };
+        ParticipantLeftEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "PARTICIPANT_LEFT";
+            /** Format: int64 */
+            sequence?: number;
+            /** Format: date-time */
+            occurredAt?: string;
+            /** Format: int64 */
+            membershipVersion?: number;
+            /** Format: uuid */
+            participantId?: string;
+        };
         MetadataResponse: {
             apiVersion?: string;
             /** Format: int64 */
@@ -463,6 +876,35 @@ export interface components {
             maxTextLength?: number;
             /** Format: int32 */
             maxProjectionRequestBytes?: number;
+        };
+        EncounterMetadataResponse: {
+            apiVersion?: string;
+            signatureProfile?: string;
+            signatureAlgorithm?: string;
+            /** Format: int64 */
+            signatureMaxAgeSeconds?: number;
+            /** Format: int64 */
+            signatureFutureSkewSeconds?: number;
+            /** Format: int32 */
+            maxParticipants?: number;
+            /** Format: int32 */
+            maxMessagePayloadBytes?: number;
+            /** Format: int32 */
+            maxRequestBytes?: number;
+            /** Format: int64 */
+            maxInvitationTtlSeconds?: number;
+            /** Format: int32 */
+            maxPendingInvitations?: number;
+            /** Format: int64 */
+            encounterTtlSeconds?: number;
+            /** Format: int64 */
+            admissionTtlSeconds?: number;
+            /** Format: int64 */
+            retentionAfterExpirySeconds?: number;
+            /** Format: int32 */
+            pollAfterSeconds?: number;
+            admissionPolicy?: string;
+            encryption?: string;
         };
     };
     responses: never;
@@ -545,6 +987,38 @@ export interface operations {
             };
         };
     };
+    claimEncounterFromOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                presenceId: string;
+                offerHandle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Existing result returned for an idempotent retry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterResponse"];
+                };
+            };
+        };
+    };
     declineLocationOffer: {
         parameters: {
             query?: never;
@@ -587,6 +1061,213 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["RecordedResponse"];
+                };
+            };
+        };
+    };
+    registerNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Node registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NodeResponse"];
+                };
+            };
+            /** @description Invalid registration proof or challenge */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Public key already registered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    issueNodeRegistrationChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChallengeRequest"];
+            };
+        };
+        responses: {
+            /** @description Challenge issued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ChallengeResponse"];
+                };
+            };
+            /** @description Invalid key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    joinEncounter: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description SHA-256 digest of the exact request body, covered by the node signature */
+                "Content-Digest": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing result returned for an idempotent retry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterResponse"];
+                };
+            };
+        };
+    };
+    sendEncounterMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description SHA-256 digest of the exact request body, covered by the node signature */
+                "Content-Digest": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendEncounterMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing result returned for an idempotent retry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageEvent"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageEvent"];
+                };
+            };
+        };
+    };
+    createEncounterInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description SHA-256 digest of the exact request body, covered by the node signature */
+                "Content-Digest": string;
+            };
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEncounterInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Existing result returned for an idempotent retry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterInvitationResponse"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterInvitationResponse"];
                 };
             };
         };
@@ -696,6 +1377,77 @@ export interface operations {
             };
         };
     };
+    listNodeEncounters: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                state?: "WAITING_FOR_MEMBERS" | "OPEN" | "CLOSED" | "EXPIRED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EncounterListResponse"];
+                };
+            };
+        };
+    };
+    getEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EncounterResponse"];
+                };
+            };
+        };
+    };
+    getEncounterEvents: {
+        parameters: {
+            query?: {
+                afterSequence?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EncounterEventPage"];
+                };
+            };
+        };
+    };
     getLocationMetadata: {
         parameters: {
             query?: never;
@@ -716,12 +1468,73 @@ export interface operations {
             };
         };
     };
+    getEncounterMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["EncounterMetadataResponse"];
+                };
+            };
+        };
+    };
     deletePresence: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 presenceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    leaveEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeEncounterInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: string;
+                invitationId: string;
             };
             cookie?: never;
         };

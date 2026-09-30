@@ -1,10 +1,20 @@
+import type { StoredNodeIdentity } from '../../identity/persistence/identityRepository'
 import Dexie, { type Table } from 'dexie'
 import type { LocalPresence } from '../model/local'
 import type { Intent } from '../../intent/model/Intent'
+import type { PendingMessage } from '../../encounter/persistence/outbox'
+
+export type DiscoveryPreference = {
+  key: 'discovery'
+  stopped: boolean
+  locationEnabled?: boolean
+}
 
 export class LocationDatabase extends Dexie {
+  nodeIdentities!: Table<StoredNodeIdentity, string>
+  encounterOutbox!: Table<PendingMessage, [string, string]>
   presences!: Table<LocalPresence, string>
-  preferences!: Table<{ key: 'discovery'; stopped: boolean }, string>
+  preferences!: Table<DiscoveryPreference, string>
   intents!: Table<Intent, string>
 
   constructor(name = 'kavozi-location') {
@@ -18,6 +28,8 @@ export class LocationDatabase extends Dexie {
         delete intent.discoveryAreaId
       })
     })
+    this.version(4).stores({ nodeIdentities: 'slot' })
+    this.version(5).stores({ encounterOutbox: '[fingerprint+encounterId]' })
   }
 }
 
@@ -43,6 +55,16 @@ export const presenceRepository = {
       if (!Number.isSafeInteger(value)) throw new Error('Please reset your presence.')
       await db.presences.put({ ...current, [field]: value })
       return value
+    })
+  },
+}
+
+export const discoveryPreferenceRepository = {
+  get: () => db.preferences.get('discovery'),
+  async setLocationEnabled(locationEnabled: boolean) {
+    return db.transaction('rw', db.preferences, async () => {
+      const current = await db.preferences.get('discovery')
+      await db.preferences.put({ key: 'discovery', stopped: current?.stopped ?? false, locationEnabled })
     })
   },
 }

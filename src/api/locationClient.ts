@@ -5,6 +5,7 @@ import type { LocalPresence } from '../location/model/local'
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 export type Schema = components['schemas']
 type Credentials = Pick<LocalPresence, 'id' | 'token'>
+export const presenceAuthorization = (presence: Credentials) => `KavoziPresence ${presence.token}`
 
 export class ApiError extends Error {
   readonly status: number
@@ -38,7 +39,7 @@ export function createLocationClient(baseUrl = API_BASE_URL) {
     return response.data
   }
   // The prefix comes from the supplied security scheme, not the product name.
-  const auth = (presence: Credentials) => ({ Authorization: `KavoziPresence ${presence.token}` })
+  const auth = (presence: Credentials) => ({ Authorization: presenceAuthorization(presence) })
   async function protectedRequest<T>(presence: Credentials, request: () => Promise<T>) {
     try { return await request() } catch (error) {
       if (error instanceof ApiError && error.invalidPresence) {
@@ -48,6 +49,10 @@ export function createLocationClient(baseUrl = API_BASE_URL) {
     }
   }
   return {
+    issueNodeRegistrationChallenge: (body: Schema['ChallengeRequest']) =>
+      result(client.POST('/v1/node-registration-challenges', { body, signal: AbortSignal.timeout(15000) })),
+    registerNode: (body: Schema['RegistrationRequest']) =>
+      result(client.POST('/v1/nodes', { body, signal: AbortSignal.timeout(15000) })),
     createPresence: () => result(client.POST('/v1/presences')),
     getMetadata: () => result(client.GET('/.well-known/kavozi-location')),
     searchAdministrativeAreas: (query: string, type?: 'CITY' | 'DISTRICT', signal?: AbortSignal) =>

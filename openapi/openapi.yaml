@@ -75,6 +75,41 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/PresenceResponse"
+  /v1/presences/{presenceId}/offers/{offerHandle}/encounter:
+    post:
+      tags:
+      - encounter-controller
+      operationId: claimEncounterFromOffer
+      parameters:
+      - name: presenceId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: offerHandle
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: Existing result returned for an idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterResponse"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterResponse"
+      security:
+      - presenceToken: []
+        nodeSignature: []
+        nodeSignatureInput: []
   /v1/presences/{presenceId}/offers/{offerHandle}/decline:
     post:
       tags:
@@ -129,6 +164,207 @@ paths:
                 $ref: "#/components/schemas/RecordedResponse"
       security:
       - presenceToken: []
+  /v1/nodes:
+    post:
+      tags:
+      - node-controller
+      summary: Register an Ed25519 node after private-key proof
+      description: "Sign these US-ASCII bytes with Ed25519, including the final newline:\
+        \ `KAVOZI-NODE-REGISTRATION-V1\\nchallenge-id:<lowercase UUID>\\nchallenge:<unpadded\
+        \ Base64url challenge>\\npublic-key-fingerprint:<sha256:unpadded Base64url\
+        \ SHA-256 of canonical SPKI>\\naudience:kavozi-api\\n`. The challenge is single-use.\
+        \ The public key is immutable; losing its private key requires a new identity\
+        \ in v1. Registration does not authorize a Presence."
+      operationId: registerNode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationRequest"
+        required: true
+      responses:
+        "201":
+          description: Node registered
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/NodeResponse"
+        "400":
+          description: Invalid registration proof or challenge
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Public key already registered
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request too large
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/node-registration-challenges:
+    post:
+      tags:
+      - node-controller
+      summary: Issue a single-use Ed25519 registration challenge
+      description: Submit an unpadded Base64url canonical DER Ed25519 SubjectPublicKeyInfo.
+        The returned random challenge is bound to SHA-256 of the canonical SPKI and
+        expires after the configured lifetime (120 seconds by default). Registration
+        does not create or authorize a Presence.
+      operationId: issueNodeRegistrationChallenge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeRequest"
+        required: true
+      responses:
+        "201":
+          description: Challenge issued
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ChallengeResponse"
+        "400":
+          description: Invalid key
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request too large
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/encounters/{encounterId}/participants:
+    post:
+      tags:
+      - encounter-controller
+      operationId: joinEncounter
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Content-Digest
+        in: header
+        description: "SHA-256 digest of the exact request body, covered by the node\
+          \ signature"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinEncounterRequest"
+        required: true
+      responses:
+        "200":
+          description: Existing result returned for an idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterResponse"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterResponse"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
+  /v1/encounters/{encounterId}/messages:
+    post:
+      tags:
+      - encounter-controller
+      operationId: sendEncounterMessage
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Content-Digest
+        in: header
+        description: "SHA-256 digest of the exact request body, covered by the node\
+          \ signature"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendEncounterMessageRequest"
+        required: true
+      responses:
+        "200":
+          description: Existing result returned for an idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageEvent"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageEvent"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
+  /v1/encounters/{encounterId}/invitations:
+    post:
+      tags:
+      - encounter-controller
+      operationId: createEncounterInvitation
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Content-Digest
+        in: header
+        description: "SHA-256 digest of the exact request body, covered by the node\
+          \ signature"
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEncounterInvitationRequest"
+        required: true
+      responses:
+        "200":
+          description: Existing result returned for an idempotent retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterInvitationResponse"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterInvitationResponse"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
   /v1/presences/{presenceId}/inbox:
     get:
       tags:
@@ -225,6 +461,102 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/TemplateResponse"
+  /v1/encounters:
+    get:
+      tags:
+      - encounter-controller
+      operationId: listNodeEncounters
+      parameters:
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      - name: state
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - WAITING_FOR_MEMBERS
+          - OPEN
+          - CLOSED
+          - EXPIRED
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EncounterListResponse"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
+  /v1/encounters/{encounterId}:
+    get:
+      tags:
+      - encounter-controller
+      operationId: getEncounter
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EncounterResponse"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
+  /v1/encounters/{encounterId}/events:
+    get:
+      tags:
+      - encounter-controller
+      operationId: getEncounterEvents
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: afterSequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EncounterEventPage"
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
   /.well-known/kavozi-location:
     get:
       tags:
@@ -237,6 +569,19 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/MetadataResponse"
+  /.well-known/kavozi-encounter:
+    get:
+      tags:
+      - encounter-controller
+      summary: Discover messenger limits and the node-signature profile
+      operationId: getEncounterMetadata
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/EncounterMetadataResponse"
   /v1/presences/{presenceId}:
     delete:
       tags:
@@ -254,6 +599,48 @@ paths:
           description: No Content
       security:
       - presenceToken: []
+  /v1/encounters/{encounterId}/participants/me:
+    delete:
+      tags:
+      - encounter-controller
+      operationId: leaveEncounter
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
+  /v1/encounters/{encounterId}/invitations/{invitationId}:
+    delete:
+      tags:
+      - encounter-controller
+      operationId: revokeEncounterInvitation
+      parameters:
+      - name: encounterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: invitationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
+      security:
+      - nodeSignature: []
+        nodeSignatureInput: []
 components:
   schemas:
     ErrorResponse:
@@ -526,6 +913,311 @@ components:
         inboxPollAfterSeconds:
           type: integer
           format: int32
+    EncounterResponse:
+      type: object
+      properties:
+        encounterId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - WAITING_FOR_MEMBERS
+          - OPEN
+          - CLOSED
+          - EXPIRED
+        membershipVersion:
+          type: integer
+          format: int64
+        expectedInitialParticipants:
+          type: integer
+          format: int64
+        activeParticipants:
+          type: integer
+          format: int64
+        maxParticipants:
+          type: integer
+          format: int32
+        admissionPolicy:
+          type: string
+          enum:
+          - MEMBERS_MAY_INVITE
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantResponse"
+        self:
+          $ref: "#/components/schemas/SelfMembershipResponse"
+        mySource:
+          $ref: "#/components/schemas/LocalSourceResponse"
+        lastSequence:
+          type: integer
+          format: int64
+        createdAt:
+          type: string
+          format: date-time
+        admissionDeadline:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        purgeAt:
+          type: string
+          format: date-time
+    LocalSourceResponse:
+      type: object
+      properties:
+        offerHandle:
+          type: string
+          format: uuid
+        localDiscoveryProjectionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+    ParticipantResponse:
+      type: object
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - ACTIVE
+          - LEFT
+        joinedAt:
+          type: string
+          format: date-time
+        leftAt:
+          type: string
+          format: date-time
+    SelfMembershipResponse:
+      type: object
+      properties:
+        participantId:
+          type: string
+          format: uuid
+        firstVisibleSequence:
+          type: integer
+          format: int64
+    RegistrationRequest:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        challenge:
+          type: string
+          description: Unpadded Base64url 32-byte challenge
+          maxLength: 43
+          minLength: 43
+        publicKey:
+          type: string
+          description: Same unpadded Base64url canonical Ed25519 DER SubjectPublicKeyInfo
+          maxLength: 512
+          minLength: 1
+        signature:
+          type: string
+          description: Unpadded Base64url Ed25519 signature of the canonical registration
+            statement
+          maxLength: 86
+          minLength: 86
+      required:
+      - challenge
+      - challengeId
+      - publicKey
+      - signature
+    NodeResponse:
+      type: object
+      properties:
+        nodeId:
+          type: string
+          format: uuid
+        fingerprint:
+          type: string
+          description: SHA-256 of canonical DER SubjectPublicKeyInfo
+          pattern: "sha256:[A-Za-z0-9_-]{43}"
+        keyAlgorithm:
+          type: string
+          enum:
+          - Ed25519
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - REVOKED
+        createdAt:
+          type: string
+          format: date-time
+    ChallengeRequest:
+      type: object
+      properties:
+        publicKey:
+          type: string
+          description: Unpadded Base64url canonical Ed25519 DER SubjectPublicKeyInfo
+          maxLength: 512
+          minLength: 1
+      required:
+      - publicKey
+    ChallengeResponse:
+      type: object
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        challenge:
+          type: string
+          description: Unpadded Base64url 32-byte single-use challenge
+          maxLength: 43
+          minLength: 43
+        fingerprint:
+          type: string
+          description: SHA-256 of canonical DER SubjectPublicKeyInfo
+          pattern: "sha256:[A-Za-z0-9_-]{43}"
+        expiresAt:
+          type: string
+          format: date-time
+    JoinEncounterRequest:
+      type: object
+      properties:
+        invitationId:
+          type: string
+          format: uuid
+        invitationToken:
+          type: string
+          minLength: 1
+          pattern: "[A-Za-z0-9_-]{43}"
+        membershipVersion:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 1
+      required:
+      - invitationId
+      - invitationToken
+      - membershipVersion
+    SendEncounterMessageRequest:
+      type: object
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        membershipVersion:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 1
+        protocol:
+          type: string
+          minLength: 1
+          pattern: "[a-z0-9][a-z0-9._-]{0,63}"
+        contentType:
+          type: string
+          maxLength: 128
+          minLength: 0
+          pattern: "[\\x20-\\x7e]+"
+        payload:
+          type: string
+          maxLength: 21846
+          minLength: 0
+          pattern: "[A-Za-z0-9_-]+"
+      required:
+      - contentType
+      - membershipVersion
+      - messageId
+      - payload
+      - protocol
+    MessageEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - MESSAGE
+        sequence:
+          type: integer
+          format: int64
+        occurredAt:
+          type: string
+          format: date-time
+        membershipVersion:
+          type: integer
+          format: int64
+        message:
+          $ref: "#/components/schemas/MessageResponse"
+    MessageResponse:
+      type: object
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        senderParticipantId:
+          type: string
+          format: uuid
+        protocol:
+          type: string
+        contentType:
+          type: string
+        payload:
+          type: string
+    CreateEncounterInvitationRequest:
+      type: object
+      properties:
+        invitationId:
+          type: string
+          format: uuid
+        invitationTokenHash:
+          type: string
+          minLength: 1
+          pattern: "[A-Za-z0-9_-]{43}"
+        membershipVersion:
+          type: integer
+          format: int64
+          maximum: 9007199254740991
+          minimum: 1
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+      - expiresAt
+      - invitationId
+      - invitationTokenHash
+      - membershipVersion
+    EncounterInvitationResponse:
+      type: object
+      properties:
+        encounterId:
+          type: string
+          format: uuid
+        invitationId:
+          type: string
+          format: uuid
+        inviterParticipantId:
+          type: string
+          format: uuid
+        membershipVersion:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - PENDING
+          - CONSUMED
+          - REVOKED
+          - EXPIRED
+          - INVALIDATED
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
     InboxResponse:
       type: object
       properties:
@@ -781,6 +1473,113 @@ components:
           - TEXT
       required:
       - kind
+    EncounterListResponse:
+      type: object
+      properties:
+        encounters:
+          type: array
+          items:
+            $ref: "#/components/schemas/EncounterResponse"
+        nextCursor:
+          type: string
+    EncounterEvent:
+      discriminator:
+        propertyName: type
+        mapping:
+          MESSAGE: "#/components/schemas/MessageEvent"
+          PARTICIPANT_JOINED: "#/components/schemas/ParticipantJoinedEvent"
+          PARTICIPANT_LEFT: "#/components/schemas/ParticipantLeftEvent"
+          ENCOUNTER_OPENED: "#/components/schemas/LifecycleEvent"
+          ENCOUNTER_CLOSED: "#/components/schemas/LifecycleEvent"
+          ENCOUNTER_EXPIRED: "#/components/schemas/LifecycleEvent"
+      oneOf:
+      - $ref: "#/components/schemas/MessageEvent"
+      - $ref: "#/components/schemas/ParticipantJoinedEvent"
+      - $ref: "#/components/schemas/ParticipantLeftEvent"
+      - $ref: "#/components/schemas/LifecycleEvent"
+    EncounterEventPage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EncounterEvent"
+            oneOf:
+            - $ref: "#/components/schemas/MessageEvent"
+            - $ref: "#/components/schemas/ParticipantJoinedEvent"
+            - $ref: "#/components/schemas/ParticipantLeftEvent"
+            - $ref: "#/components/schemas/LifecycleEvent"
+        nextAfterSequence:
+          type: integer
+          format: int64
+        hasMore:
+          type: boolean
+        pollAfterSeconds:
+          type: integer
+          format: int32
+        state:
+          type: string
+          enum:
+          - WAITING_FOR_MEMBERS
+          - OPEN
+          - CLOSED
+          - EXPIRED
+        membershipVersion:
+          type: integer
+          format: int64
+    LifecycleEvent:
+      type: object
+      properties:
+        type:
+          type: string
+        sequence:
+          type: integer
+          format: int64
+        occurredAt:
+          type: string
+          format: date-time
+        membershipVersion:
+          type: integer
+          format: int64
+        reason:
+          type: string
+    ParticipantJoinedEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - PARTICIPANT_JOINED
+        sequence:
+          type: integer
+          format: int64
+        occurredAt:
+          type: string
+          format: date-time
+        membershipVersion:
+          type: integer
+          format: int64
+        participant:
+          $ref: "#/components/schemas/ParticipantResponse"
+    ParticipantLeftEvent:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - PARTICIPANT_LEFT
+        sequence:
+          type: integer
+          format: int64
+        occurredAt:
+          type: string
+          format: date-time
+        membershipVersion:
+          type: integer
+          format: int64
+        participantId:
+          type: string
+          format: uuid
     MetadataResponse:
       type: object
       properties:
@@ -842,6 +1641,52 @@ components:
         maxProjectionRequestBytes:
           type: integer
           format: int32
+    EncounterMetadataResponse:
+      type: object
+      properties:
+        apiVersion:
+          type: string
+        signatureProfile:
+          type: string
+        signatureAlgorithm:
+          type: string
+        signatureMaxAgeSeconds:
+          type: integer
+          format: int64
+        signatureFutureSkewSeconds:
+          type: integer
+          format: int64
+        maxParticipants:
+          type: integer
+          format: int32
+        maxMessagePayloadBytes:
+          type: integer
+          format: int32
+        maxRequestBytes:
+          type: integer
+          format: int32
+        maxInvitationTtlSeconds:
+          type: integer
+          format: int64
+        maxPendingInvitations:
+          type: integer
+          format: int32
+        encounterTtlSeconds:
+          type: integer
+          format: int64
+        admissionTtlSeconds:
+          type: integer
+          format: int64
+        retentionAfterExpirySeconds:
+          type: integer
+          format: int64
+        pollAfterSeconds:
+          type: integer
+          format: int32
+        admissionPolicy:
+          type: string
+        encryption:
+          type: string
   securitySchemes:
     presenceToken:
       type: apiKey
@@ -850,4 +1695,12 @@ components:
         \ including the case-sensitive `KavoziPresence ` prefix, in Swagger UI and\
         \ generated clients. The token must belong to the path's `presenceId`."
       name: Authorization
+      in: header
+    nodeSignature:
+      type: apiKey
+      name: Signature
+      in: header
+    nodeSignatureInput:
+      type: apiKey
+      name: Signature-Input
       in: header

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Chromatic Triangle — Prototype</title>
+<style>
+  :root{
+    --bg:#f3efe7;
+    --panel:#fffaf1;
+    --ink:#1c2229;
+    --muted:#6d716f;
+    --wood:#7c4d2e;
+    --line:#c6a15b;
+    --shadow:0 16px 40px rgba(50,35,20,.14);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255,255,255,.8), transparent 30%),
+      linear-gradient(135deg,#efe8dc,#f8f3eb 55%,#e8dfd1);
+    min-height:100vh;
+  }
+  .page{
+    max-width:1180px;
+    margin:0 auto;
+    padding:24px;
+    display:grid;
+    grid-template-columns:minmax(560px,1.35fr) minmax(320px,.65fr);
+    gap:24px;
+  }
+  @media (max-width:900px){
+    .page{grid-template-columns:1fr;padding:14px}
+  }
+  .card{
+    background:rgba(255,250,241,.93);
+    border:1px solid rgba(80,55,30,.12);
+    border-radius:22px;
+    box-shadow:var(--shadow);
+  }
+  .board-card{padding:22px}
+  h1{
+    margin:0 0 4px;
+    font-size:clamp(28px,4vw,46px);
+    letter-spacing:.02em;
+  }
+  .subtitle{color:var(--muted);margin-bottom:18px}
+  .turnbar{
+    display:flex;justify-content:space-between;gap:12px;align-items:center;
+    background:#f1e5cf;border-radius:14px;padding:11px 14px;margin-bottom:16px;
+  }
+  .turnbar strong{font-size:18px}
+  .status-pill{
+    padding:6px 10px;border-radius:999px;background:#fff8e8;border:1px solid #d8bc83;
+    font-size:13px;font-weight:700;
+  }
+
+  .board{
+    width:min(100%,680px);
+    aspect-ratio:1.08/1;
+    margin:0 auto;
+    position:relative;
+    clip-path:polygon(50% 1%, 99% 96%, 1% 96%);
+    background:
+      linear-gradient(120deg,rgba(255,255,255,.05),rgba(0,0,0,.07)),
+      #2f302f;
+    border-radius:22px;
+    filter:drop-shadow(0 16px 14px rgba(51,32,15,.18));
+  }
+  .board:before{
+    content:"";
+    position:absolute;inset:8px;
+    clip-path:polygon(50% 1%, 99% 96%, 1% 96%);
+    border:12px solid var(--wood);
+    pointer-events:none;
+  }
+  svg.edges{
+    position:absolute;inset:0;width:100%;height:100%;
+  }
+  .edge{stroke:var(--line);stroke-width:5;stroke-linecap:round;opacity:.9}
+  .triangle-fill{fill:rgba(198,161,91,.045);stroke:rgba(198,161,91,.22);stroke-width:2}
+
+  .rotator{
+    position:absolute;
+    width:17%;
+    aspect-ratio:1;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    border:5px solid #16191c;
+    box-shadow:0 7px 12px rgba(0,0,0,.32), inset 0 0 0 3px rgba(255,255,255,.07);
+    cursor:pointer;
+    transition:transform .13s ease, box-shadow .13s ease;
+    display:grid;place-items:center;
+    user-select:none;
+  }
+  .rotator:hover{transform:translate(-50%,-50%) scale(1.055);box-shadow:0 9px 18px rgba(0,0,0,.38)}
+  .rotator:active{transform:translate(-50%,-50%) scale(.98)}
+  .rotator .hub{
+    width:24%;aspect-ratio:1;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#f1d49f,#9c6d27 62%,#4f3718);
+    border:1px solid rgba(0,0,0,.45);
+    box-shadow:0 2px 4px rgba(0,0,0,.45);
+  }
+  .rotator .label{
+    position:absolute;top:-30px;left:50%;transform:translateX(-50%);
+    font-weight:900;color:#f9efe0;text-shadow:0 2px 3px #000;
+  }
+  .rotator .cycle-badge{
+    position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);
+    color:#fff;background:rgba(0,0,0,.7);font-size:10px;
+    padding:3px 6px;border-radius:999px;white-space:nowrap;
+  }
+  .rotator::after{
+    content:"▼";
+    position:absolute;top:-24px;left:50%;transform:translateX(-50%);
+    color:#f5d08d;font-size:14px;text-shadow:0 1px 2px #000;
+  }
+  .rotator.replacement-target{
+    outline:5px solid #fff0a8;
+    outline-offset:5px;
+    animation:pulse 1s infinite alternate;
+  }
+  @keyframes pulse{
+    from{outline-color:#fff0a8}
+    to{outline-color:#ffb85c}
+  }
+
+  .controls{
+    display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:16px
+  }
+  button{
+    border:0;border-radius:12px;padding:10px 14px;font:inherit;font-weight:800;
+    cursor:pointer;background:#242a30;color:white;
+  }
+  button.secondary{background:#e7d4af;color:#342c24}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .hint{
+    margin:14px auto 0;max-width:680px;padding:10px 12px;border-radius:12px;
+    background:#f7eedc;color:#5a4d3e;font-size:14px;line-height:1.45
+  }
+
+  .side{display:flex;flex-direction:column;gap:16px}
+  .section{padding:18px}
+  .section h2{font-size:18px;margin:0 0 12px}
+  .players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .player{
+    padding:12px;border:2px solid transparent;border-radius:14px;background:#f4ecdf;
+  }
+  .player.active{border-color:#b68131;background:#fff4d9}
+  .player .name{font-weight:900;margin-bottom:7px}
+  .tokens{display:flex;gap:6px;flex-wrap:wrap}
+  .token{
+    width:28px;height:28px;border-radius:50%;border:2px solid rgba(0,0,0,.28);
+    display:grid;place-items:center;color:#fff;font-size:11px;font-weight:900;
+    box-shadow:0 2px 4px rgba(0,0,0,.18)
+  }
+  .token.zero{opacity:.2;filter:grayscale(.4)}
+  .replacement-info{
+    margin-top:8px;color:var(--muted);font-size:12px;font-weight:700
+  }
+
+  .cycles{display:grid;gap:9px}
+  .cycle-option{
+    border:2px solid transparent;border-radius:12px;background:#f4ecdf;padding:9px;
+    cursor:pointer;
+  }
+  .cycle-option.selected{border-color:#b68131;background:#fff6dd}
+  .cycle-name{font-weight:900;font-size:13px;margin-bottom:4px}
+  .cycle-row{display:flex;align-items:center;gap:6px}
+  .dot{width:20px;height:20px;border-radius:50%;border:1px solid rgba(0,0,0,.25)}
+  .arrow{font-size:12px;color:#776e63}
+  .small-note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:8px}
+
+  .rules{
+    margin:0;padding-left:18px;display:grid;gap:7px;color:#423d36;font-size:14px;line-height:1.4
+  }
+  .log{
+    height:205px;overflow:auto;background:#272a2d;color:#ece7dc;border-radius:13px;
+    padding:11px;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  .log-entry{margin-bottom:7px}
+  .scoreflash{
+    position:fixed;left:50%;top:22px;transform:translateX(-50%) translateY(-120px);
+    background:#161a1e;color:#fff;padding:12px 18px;border-radius:999px;
+    font-weight:900;box-shadow:var(--shadow);transition:.3s ease;z-index:5
+  }
+  .scoreflash.show{transform:translateX(-50%) translateY(0)}
+  .gameover{
+    color:#7e3500;font-weight:900
+  }
+</style>
+</head>
+<body>
+<div class="scoreflash" id="flash"></div>
+
+<div class="page">
+  <main class="card board-card">
+    <h1>Chromatic Triangle</h1>
+    <div class="subtitle">Standalone rules prototype — click a rotator to make a move.</div>
+
+    <div class="turnbar">
+      <div><strong id="turnText">Player 1's turn</strong><div id="modeText">Normal move</div></div>
+      <div class="status-pill" id="objectiveText">Collect 3 different colors</div>
+    </div>
+
+    <div class="board" id="board">
+      <svg class="edges" viewBox="0 0 1000 930" aria-hidden="true">
+        <polygon class="triangle-fill" points="500,150 310,410 690,410"/>
+        <polygon class="triangle-fill" points="310,410 180,730 500,730"/>
+        <polygon class="triangle-fill" points="310,410 690,410 500,730"/>
+        <polygon class="triangle-fill" points="690,410 500,730 820,730"/>
+
+        <line class="edge" x1="500" y1="150" x2="310" y2="410"/>
+        <line class="edge" x1="500" y1="150" x2="690" y2="410"/>
+        <line class="edge" x1="310" y1="410" x2="690" y2="410"/>
+        <line class="edge" x1="310" y1="410" x2="180" y2="730"/>
+        <line class="edge" x1="310" y1="410" x2="500" y2="730"/>
+        <line class="edge" x1="690" y1="410" x2="500" y2="730"/>
+        <line class="edge" x1="690" y1="410" x2="820" y2="730"/>
+        <line class="edge" x1="180" y1="730" x2="500" y2="730"/>
+        <line class="edge" x1="500" y1="730" x2="820" y2="730"/>
+      </svg>
+    </div>
+
+    <div class="controls">
+      <button id="replaceBtn">Use replacement</button>
+      <button class="secondary" id="cancelReplaceBtn" disabled>Cancel replacement</button>
+      <button class="secondary" id="newBtn">New game</button>
+    </div>
+
+    <div class="hint" id="hint">
+      <strong>Normal move:</strong> choose one rotator. It moves <strong>+1 clockwise</strong>;
+      every directly connected neighbor moves <strong>−1 counter-clockwise</strong>.
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="card section">
+      <h2>Players</h2>
+      <div class="players">
+        <div class="player active" id="player0">
+          <div class="name">Player 1</div>
+          <div class="tokens" id="tokens0"></div>
+          <div class="replacement-info" id="rep0">Replacement available</div>
+        </div>
+        <div class="player" id="player1">
+          <div class="name">Player 2</div>
+          <div class="tokens" id="tokens1"></div>
+          <div class="replacement-info" id="rep1">Replacement available</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Replacement wheel</h2>
+      <div class="cycles" id="cycles"></div>
+      <div class="small-note">
+        A replacement consumes the whole turn. The chosen rotator keeps its <strong>current visible color</strong>,
+        but its future clockwise / counter-clockwise sequence changes permanently.
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2>Rules summary</h2>
+      <ol class="rules">
+        <li>Six rotators form four scoring triangles: ABC, BDE, BCE and CEF.</li>
+        <li>Click one rotator: chosen wheel advances +1; all connected neighbors go −1.</li>
+        <li>After the move, every newly created monochromatic triangle gives one token of that color.</li>
+        <li>Repeated colors are allowed, but victory requires tokens of <strong>3 different colors</strong>.</li>
+        <li>Each player may once per game replace one wheel with a different color cycle.</li>
+      </ol>
+    </section>
+
+    <section class="card section">
+      <h2>Move log</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const COLORS = {
+    R: {name:'Red',    css:'#db3b35'},
+    Y: {name:'Yellow', css:'#f2c438'},
+    G: {name:'Green',  css:'#4aa06d'},
+    B: {name:'Blue',   css:'#3d86d9'}
+  };
+
+  // Cycles are read clockwise.
+  const CYCLES = [
+    {id:'standard', name:'Standard', seq:['R','Y','G','B']},
+    {id:'spiral',   name:'Variant A',seq:['R','G','Y','B']},
+    {id:'cross',    name:'Variant B',seq:['R','B','Y','G']}
+  ];
+
+  const POS = {
+    A:[50,17], B:[31,44], C:[69,44],
+    D:[18,78], E:[50,78], F:[82,78]
+  };
+
+  const ADJ = {
+    A:['B','C'],
+    B:['A','C','D','E'],
+    C:['A','B','E','F'],
+    D:['B','E'],
+    E:['B','C','D','F'],
+    F:['C','E']
+  };
+
+  const TRIANGLES = [
+    {id:'ABC', nodes:['A','B','C']},
+    {id:'BDE', nodes:['B','D','E']},
+    {id:'BCE', nodes:['B','C','E']},
+    {id:'CEF', nodes:['C','E','F']}
+  ];
+
+  const board = document.getElementById('board');
+  const logEl = document.getElementById('log');
+  const replaceBtn = document.getElementById('replaceBtn');
+  const cancelReplaceBtn = document.getElementById('cancelReplaceBtn');
+  const newBtn = document.getElementById('newBtn');
+  const hint = document.getElementById('hint');
+  const turnText = document.getElementById('turnText');
+  const modeText = document.getElementById('modeText');
+  const flash = document.getElementById('flash');
+
+  let state;
+  let selectedReplacementCycle = 'spiral';
+
+  function newGame(){
+    state = {
+      player:0,
+      gameOver:false,
+      replacementMode:false,
+      replacementUsed:[false,false],
+      tokens:[{R:0,Y:0,G:0,B:0},{R:0,Y:0,G:0,B:0}],
+      // Deliberately asymmetric start so the demo develops quickly.
+      wheels:{
+        A:{color:'R',cycle:'standard'},
+        B:{color:'Y',cycle:'standard'},
+        C:{color:'B',cycle:'standard'},
+        D:{color:'G',cycle:'standard'},
+        E:{color:'R',cycle:'standard'},
+        F:{color:'Y',cycle:'standard'}
+      }
+    };
+    logEl.innerHTML = '';
+    addLog('New game. Player 1 begins.');
+    render();
+  }
+
+  function cycleById(id){ return CYCLES.find(c => c.id === id); }
+
+  function rotateColor(wheel, dir){
+    const seq = cycleById(wheel.cycle).seq;
+    const i = seq.indexOf(wheel.color);
+    const next = (i + dir + seq.length) % seq.length;
+    return seq[next];
+  }
+
+  function snapshotMonoTriangles(){
+    const result = new Map();
+    for(const t of TRIANGLES){
+      const cs = t.nodes.map(n => state.wheels[n].color);
+      if(cs.every(c => c === cs[0])) result.set(t.id, cs[0]);
+    }
+    return result;
+  }
+
+  function performMove(node){
+    if(state.gameOver || state.replacementMode) return;
+
+    const before = snapshotMonoTriangles();
+
+    state.wheels[node].color = rotateColor(state.wheels[node], +1);
+    for(const n of ADJ[node]){
+      state.wheels[n].color = rotateColor(state.wheels[n], -1);
+    }
+
+    addLog(`P${state.player+1}: move ${node}  (+${node}; −${ADJ[node].join(',−')})`);
+
+    const after = snapshotMonoTriangles();
+    const scored = [];
+    for(const [tri, color] of after.entries()){
+      if(!before.has(tri)){
+        state.tokens[state.player][color]++;
+        scored.push({tri,color});
+      }
+    }
+
+    if(scored.length){
+      const summary = scored.map(s => `${s.tri} = ${COLORS[s.color].name}`).join(', ');
+      addLog(`↳ score: ${summary}`);
+      showFlash(`Player ${state.player+1} scores ${scored.length} token${scored.length>1?'s':''}!`);
+    }
+
+    if(checkVictory()) return;
+    state.player = 1 - state.player;
+    render();
+  }
+
+  function checkVictory(){
+    const distinct = Object.values(state.tokens[state.player]).filter(v => v > 0).length;
+    if(distinct >= 3){
+      state.gameOver = true;
+      addLog(`★ Player ${state.player+1} wins with ${distinct} different colors.`);
+      showFlash(`Player ${state.player+1} wins!`);
+      render();
+      return true;
+    }
+    return false;
+  }
+
+  function enterReplacementMode(){
+    if(state.gameOver || state.replacementUsed[state.player]) return;
+    state.replacementMode = true;
+    render();
+  }
+
+  function cancelReplacement(){
+    state.replacementMode = false;
+    render();
+  }
+
+  function replaceWheel(node){
+    if(!state.replacementMode || state.gameOver) return;
+    const wheel = state.wheels[node];
+    const old = cycleById(wheel.cycle);
+    const next = cycleById(selectedReplacementCycle);
+
+    if(old.id === next.id){
+      showFlash('Choose a different cycle first.');
+      return;
+    }
+
+    // Current visible color is intentionally preserved.
+    wheel.cycle = next.id;
+    state.replacementUsed[state.player] = true;
+    addLog(`P${state.player+1}: replaced ${node}: ${old.name} → ${next.name}; visible ${COLORS[wheel.color].name} preserved.`);
+    state.replacementMode = false;
+    state.player = 1 - state.player;
+    render();
+  }
+
+  function render(){
+    renderBoard();
+    renderPlayers();
+    renderCycles();
+
+    turnText.textContent = state.gameOver ? `Game over` : `Player ${state.player+1}'s turn`;
+    modeText.textContent = state.gameOver
+      ? 'Winner shown in the log'
+      : state.replacementMode ? 'Replacement move: choose a wheel' : 'Normal move';
+
+    replaceBtn.disabled = state.gameOver || state.replacementUsed[state.player] || state.replacementMode;
+    cancelReplaceBtn.disabled = !state.replacementMode || state.gameOver;
+
+    if(state.replacementMode){
+      hint.innerHTML = `<strong>Replacement:</strong> choose a non-standard cycle on the right, then click any rotator.
+      Its visible color stays unchanged. The replacement uses your whole turn.`;
+    }else{
+      hint.innerHTML = `<strong>Normal move:</strong> choose one rotator. It moves <strong>+1 clockwise</strong>;
+      every directly connected neighbor moves <strong>−1 counter-clockwise</strong>.`;
+    }
+  }
+
+  function renderBoard(){
+    board.querySelectorAll('.rotator').forEach(e => e.remove());
+
+    for(const [id,[x,y]] of Object.entries(POS)){
+      const wheel = state.wheels[id];
+      const cycle = cycleById(wheel.cycle);
+      const el = document.createElement('div');
+      el.className = 'rotator' + (state.replacementMode ? ' replacement-target' : '');
+      el.style.left = x + '%';
+      el.style.top = y + '%';
+      el.style.background = wheelGradient(cycle.seq, wheel.color);
+      el.title = state.replacementMode
+        ? `Replace ${id} (${cycle.name})`
+        : `Move ${id}: ${id} +1; ${ADJ[id].join(', ')} −1`;
+      el.innerHTML = `
+        <div class="label">${id}</div>
+        <div class="hub"></div>
+        <div class="cycle-badge">${cycle.seq.join('→')}</div>
+      `;
+      el.addEventListener('click', () => state.replacementMode ? replaceWheel(id) : performMove(id));
+      board.appendChild(el);
+    }
+  }
+
+  function wheelGradient(seq, active){
+    // Rotate CSS sector order so the active color sits at the top.
+    const i = seq.indexOf(active);
+    const ordered = [0,1,2,3].map(k => seq[(i+k)%4]);
+    return `conic-gradient(
+      ${COLORS[ordered[0]].css} 0deg 90deg,
+      ${COLORS[ordered[1]].css} 90deg 180deg,
+      ${COLORS[ordered[2]].css} 180deg 270deg,
+      ${COLORS[ordered[3]].css} 270deg 360deg
+    )`;
+  }
+
+  function renderPlayers(){
+    for(let p=0;p<2;p++){
+      const box = document.getElementById('player'+p);
+      box.classList.toggle('active', !state.gameOver && state.player===p);
+
+      const tokens = document.getElementById('tokens'+p);
+      tokens.innerHTML = '';
+      for(const c of ['R','Y','G','B']){
+        const count = state.tokens[p][c];
+        const t = document.createElement('div');
+        t.className = 'token' + (count===0 ? ' zero' : '');
+        t.style.background = COLORS[c].css;
+        t.title = `${COLORS[c].name}: ${count}`;
+        t.textContent = count || '';
+        tokens.appendChild(t);
+      }
+      document.getElementById('rep'+p).textContent =
+        state.replacementUsed[p] ? 'Replacement already used' : 'Replacement available';
+    }
+  }
+
+  function renderCycles(){
+    const cyclesEl = document.getElementById('cycles');
+    cyclesEl.innerHTML = '';
+    for(const c of CYCLES){
+      const opt = document.createElement('div');
+      opt.className = 'cycle-option' + (selectedReplacementCycle===c.id ? ' selected':'');
+      opt.innerHTML = `
+        <div class="cycle-name">${c.name}</div>
+        <div class="cycle-row">
+          ${c.seq.map((x,i) => `
+            <span class="dot" style="background:${COLORS[x].css}" title="${COLORS[x].name}"></span>
+            ${i<c.seq.length-1 ? '<span class="arrow">→</span>' : ''}
+          `).join('')}
+          <span class="arrow">→ …</span>
+        </div>
+      `;
+      opt.addEventListener('click', () => {
+        selectedReplacementCycle = c.id;
+        renderCycles();
+      });
+      cyclesEl.appendChild(opt);
+    }
+  }
+
+  function addLog(text){
+    const row = document.createElement('div');
+    row.className = 'log-entry';
+    row.textContent = text;
+    logEl.appendChild(row);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  let flashTimer;
+  function showFlash(text){
+    clearTimeout(flashTimer);
+    flash.textContent = text;
+    flash.classList.add('show');
+    flashTimer = setTimeout(() => flash.classList.remove('show'), 1500);
+  }
+
+  replaceBtn.addEventListener('click', enterReplacementMode);
+  cancelReplaceBtn.addEventListener('click', cancelReplacement);
+  newBtn.addEventListener('click', newGame);
+
+  newGame();
+})();
+</script>
+</body>
+</html>
