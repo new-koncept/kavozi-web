@@ -21,3 +21,17 @@ it('rejects duplicate keys, malformed options, and invalid agent limits', () => 
   expect(usableTemplate(changed, 'dive')).toBe(false)
   expect(usableTemplate({ ...diveTemplate, agentConfiguration: { enabled: true, maxLength: -1 } }, 'dive')).toBe(false)
 })
+it('requires orderedValues to be a complete, unique ordering of CODE options', () => {
+  for (const orderedValues of [['OW'], ['OW', 'OW'], ['OW', 'unknown'], [1, 'AOW']] as unknown[][]) {
+    const changed = structuredClone(diveTemplate)
+    const constraints = changed.fields![1].constraints
+    if (constraints?.kind === 'CODE') constraints.orderedValues = orderedValues as string[]
+    expect(usableTemplate(changed, 'dive')).toBe(false)
+  }
+})
+it('accepts null orderedValues as an explicitly unordered CODE field', () => {
+  const changed = structuredClone(diveTemplate)
+  const constraints = changed.fields![1].constraints
+  if (constraints?.kind === 'CODE') constraints.orderedValues = null
+  expect(usableTemplate(changed, 'dive')).toBe(true)
+})

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Autocomplete, Button, Chip, MenuItem, Stack, TextField } from '@mui/material'
 import type { Constraints } from '../api/intentTemplateClient'
 import { formatIntentValue, type IntentFieldValue } from '../model/Intent'
-import { supportsEditor } from '../application/fieldSemantics'
+import { codeOptions, supportsEditor } from '../application/fieldSemantics'
 
 export function TemplateFieldEditor({ label, constraints: c, value, onChange }: {
   label: string; constraints?: Constraints; value?: IntentFieldValue; onChange: (value: IntentFieldValue | undefined) => void
@@ -27,7 +27,7 @@ export function TemplateFieldEditor({ label, constraints: c, value, onChange }: 
       onChange={(e) => onChange(e.target.value === '' ? undefined : { type: 'TEXT', value: e.target.value })} />; break
     case 'CODE': {
       const selected = value?.type === 'CODE' ? value.value : ''
-      const options = c.options?.filter((option) => option.value !== undefined) ?? []
+      const options = codeOptions(c).filter((option) => option.value !== undefined)
       input = <TextField select label={label} value={selected} onChange={(e) => onChange(e.target.value ? { type: 'CODE', value: e.target.value } : undefined)}>
         <MenuItem value="">Not specified</MenuItem>
         {selected && !options.some((o) => o.value === selected) && <MenuItem value={selected}>Unavailable: {selected}</MenuItem>}

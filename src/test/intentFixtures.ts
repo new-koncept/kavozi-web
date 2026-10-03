@@ -4,7 +4,7 @@ import { newIntent, type Intent } from '../intent/model/Intent'
 export const diveTemplate: Template = {
   key: 'dive', name: 'Dive Buddy', description: 'Find a possibility for your next dive.', fields: [
     { key: 'experience', label: 'Completed dives', type: 'NUMBER', roles: ['CLAIM', 'REQUIREMENT'], operators: ['GTE', 'EQ', 'IN'], constraints: { kind: 'NUMBER', min: 0, max: 10000, step: 1, unit: 'dives' } },
-    { key: 'certification', label: 'Certification', type: 'CODE', roles: ['CLAIM', 'REQUIREMENT'], operators: ['EQ', 'GTE'], constraints: { kind: 'CODE', options: [{ value: 'OW', label: 'Open Water', order: 0 }, { value: 'AOW', label: 'Advanced Open Water', order: 1 }] } },
+    { key: 'certification', label: 'Certification', type: 'CODE', roles: ['CLAIM', 'REQUIREMENT'], operators: ['EQ', 'GTE'], constraints: { kind: 'CODE', options: [{ value: 'AOW', label: 'Advanced Open Water' }, { value: 'OW', label: 'Open Water' }], orderedValues: ['OW', 'AOW'] } },
     { key: 'languages', label: 'Languages', type: 'SET', roles: ['CLAIM', 'REQUIREMENT', 'PREFERENCE'], operators: ['INTERSECTS', 'CONTAINS_ALL'], constraints: { kind: 'SET', elementType: 'CODE', minItems: 1, maxItems: 3, options: [{ value: 'en', label: 'English' }, { value: 'cs', label: 'Czech' }] } },
     { key: 'insured', label: 'Insured', type: 'BOOLEAN', roles: ['CLAIM'], constraints: { kind: 'BOOLEAN' } },
     { key: 'note', label: 'A little about me', type: 'TEXT', roles: ['CLAIM'], constraints: { kind: 'TEXT', minLength: 2, maxLength: 100 } },

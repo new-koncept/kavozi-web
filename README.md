@@ -169,7 +169,7 @@ The discoverability indicator stays blocked during mutations and failed synchron
 - **SET REFERENCE has no reference target or lookup endpoint.** It is editable only when explicit options supply stable values. A free-form or entity-search reference is not invented; configured/required unsupported values need review.
 - **Administrative areas have no lookup-by-ID endpoint.** IDs originate from the shared backend search and are validated structurally as UUIDs. Continued existence is ultimately checked by Location when the projection is submitted.
 - Most response properties are optional in OpenAPI. Essential keys, field definitions and metadata are runtime-checked before use. Agent sections are enabled when `AgentConfiguration.enabled` is true.
-- **Ordered CODE comparisons:** template options include `order`, but the projection has no ordering table. Stable CODE values/operators are sent unchanged; the contract does not explain how the backend interprets custom ordering. The frontend does not convert codes to numbers or send template metadata.
+- **Ordered CODE comparisons:** a non-null `CodeConstraints.orderedValues` supplies the complete option ordering from lowest to highest. The frontend uses it to enable ordered operators and present CODE choices in that order; null or absent means the CODE has no semantic ordering. Stable CODE values/operators are sent unchanged; ordering metadata is not copied into discovery projections.
 - User Intent persistence remains local. AI execution, meeting negotiation and Connection behavior are not implemented. Encounter messaging is described below.
 
 ## Existing Location behavior

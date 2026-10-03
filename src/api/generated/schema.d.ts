@@ -704,6 +704,8 @@ export interface components {
         };
         CodeConstraints: {
             options?: components["schemas"]["FieldOption"][];
+            /** @description Optional complete ordering of the option values, from lowest to highest. */
+            orderedValues?: string[] | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}

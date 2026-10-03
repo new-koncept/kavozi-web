@@ -1302,6 +1302,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FieldOption"
+        orderedValues:
+          type:
+          - array
+          - "null"
+          description: Optional complete ordering of the option values, from lowest to highest.
+          items:
+            type: string
         kind:
           type: string
           enum:

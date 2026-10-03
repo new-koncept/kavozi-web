@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { diveTemplate, fixtureIntent } from '../../test/intentFixtures'
 import { metadata } from '../../test/fixtures'
-import { fieldEditorConstraints, supportsEditor } from './fieldSemantics'
+import { codeOptions, fieldEditorConstraints, supportsEditor } from './fieldSemantics'
 import { validateIntent, validatePredicateValue, validateValue } from './intentValidator'
 import type { TemplateField } from '../api/intentTemplateClient'
 
@@ -47,6 +47,20 @@ describe('generic template semantics and local validation', () => {
     expect(validatePredicateValue(field('experience'), 'IN', { type: 'SET', elementType: 'NUMBER', values: [12, 15] })).toEqual([])
     expect(validatePredicateValue(field('languages'), 'INTERSECTS', { type: 'TEXT', value: 'en' })).not.toEqual([])
   })
+  it('uses complete orderedValues metadata for ordered CODE comparisons', () => {
+    const certification = field('certification')
+    expect(fieldEditorConstraints(certification, 'GTE')?.kind).toBe('CODE')
+    if (certification.constraints?.kind === 'CODE') expect(codeOptions(certification.constraints).map((option) => option.value)).toEqual(['OW', 'AOW'])
+    const missing = structuredClone(certification)
+    if (missing.constraints?.kind === 'CODE') missing.constraints.orderedValues = undefined
+    expect(fieldEditorConstraints(missing, 'GTE')).toBeUndefined()
+    const explicitlyUnordered = structuredClone(certification)
+    if (explicitlyUnordered.constraints?.kind === 'CODE') explicitlyUnordered.constraints.orderedValues = null
+    expect(fieldEditorConstraints(explicitlyUnordered, 'GTE')).toBeUndefined()
+    const incomplete = structuredClone(certification)
+    if (incomplete.constraints?.kind === 'CODE') incomplete.constraints.orderedValues = ['OW']
+    expect(fieldEditorConstraints(incomplete, 'GTE')).toBeUndefined()
+  })
   it('requires configured agent instruction and required claims, without defaulting missing optional values', () => {
     const intent = fixtureIntent({ agentInstruction: undefined })
     expect(validateIntent(intent, diveTemplate, metadata).valid).toBe(false)
@@ -62,7 +76,7 @@ describe('generic template semantics and local validation', () => {
     const f = template.fields!.find((f) => f.key === 'certification')!
     if (change === 'removed') template.fields = template.fields!.filter((f) => f.key !== 'certification')
     if (change === 'type') { f.type = 'TEXT'; f.constraints = { kind: 'TEXT' } }
-    if (change === 'option') f.constraints = { kind: 'CODE', options: [{ value: 'OW', label: 'Open Water', order: 0 }] }
+    if (change === 'option') f.constraints = { kind: 'CODE', options: [{ value: 'OW', label: 'Open Water' }], orderedValues: ['OW'] }
     if (change === 'operator') f.operators = ['EQ']
     expect(validateIntent(intent, template, metadata).needsReview).toBe(true)
     expect(intent).toEqual(original)

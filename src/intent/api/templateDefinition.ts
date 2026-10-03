@@ -23,6 +23,12 @@ export function usableTemplate(template: Template, expectedKey: string): boolean
         || (option.label !== undefined && typeof option.label !== 'string') || (option.order !== undefined && !Number.isFinite(option.order)))
         || new Set(c.options.map((o) => o.value)).size !== c.options.length)) return false
     }
+    if (c.kind === 'CODE' && c.orderedValues != null) {
+      if (!Array.isArray(c.orderedValues) || c.orderedValues.some((value) => typeof value !== 'string')
+        || new Set(c.orderedValues).size !== c.orderedValues.length || !c.options
+        || c.orderedValues.length !== c.options.length
+        || c.orderedValues.some((value) => !c.options!.some((option) => option.value === value))) return false
+    }
     if (c.kind === 'TEXT' || c.kind === 'SET') {
       const min = c.kind === 'TEXT' ? c.minLength : c.minItems
       const max = c.kind === 'TEXT' ? c.maxLength : c.maxItems
